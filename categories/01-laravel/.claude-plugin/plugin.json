@@ -1,0 +1,19 @@
+{
+  "name": "whyll-agents",
+  "version": "1.1.0",
+  "description": "Laravel specialist agents for WhylLima project - Full-stack, model builder, API layer, endpoint, test, and job specialists using Laravel 12, PHP 8.3, UUID-based models, and Service-Repository pattern",
+  "author": {
+    "name": "Whyl",
+    "url": ""
+  },
+  "repository": "",
+  "license": "MIT",
+  "agents": [
+    "./full-stack-specialist.md",
+    "./model-builder.md",
+    "./api-layer-builder.md",
+    "./endpoint-builder.md",
+    "./test-builder.md",
+    "./job-builder.md"
+  ]
+}

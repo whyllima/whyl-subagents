@@ -1,0 +1,21 @@
+{
+  "name": "whyl-subagents",
+  "owner": {
+    "name": "Whyl",
+    "url": ""
+  },
+  "metadata": {
+    "version": "1.0.0",
+    "description": "Specialized Claude Code subagents for WhylLima project - Laravel specialists with Service-Repository pattern"
+  },
+  "plugins": [
+    {
+      "name": "whyll-agents",
+      "source": "./categories/01-laravel",
+      "description": "Laravel specialist agents for WhylLima project - Full-stack, model builder, API layer, endpoint, test, and job specialists using Laravel 12, PHP 8.3, UUID-based models, and Service-Repository pattern",
+      "version": "1.1.0",
+      "category": "development",
+      "keywords": ["laravel", "php", "api", "service-repository", "uuid", "whyllima"]
+    }
+  ]
+}
