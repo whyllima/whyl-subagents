@@ -1,14 +1,23 @@
 ---
-name: resource-builder
-description: Creates Laravel API Resources and Collections for JSON responses.
+name: resource-fixer
+description: Fixes Laravel Resources - explicit fields, ISO dates, conditional relations.
 tools: Read, Write, Edit, Bash, Glob, Grep
 ---
 
-# Resource Builder
+# Resource Fixer
 
-Creates: JsonResource + ResourceCollection
+Ensures Resource has explicit fields, ISO dates, and conditional relationships.
 
-## Pattern
+## Rules
+
+- **Remove:** parent::toArray()
+- **Add:** @mixin annotation
+- **Use:** uuid (not id)
+- **Dates:** ->toISOString() with null-safe (?->)
+- **Relations:** whenLoaded()
+- **Counts:** whenCounted()
+
+## Correct Pattern
 
 ```php
 /** @mixin \App\Models\{Entity} */
@@ -23,15 +32,9 @@ class {Entity}Resource extends JsonResource
             'created_at' => $this->created_at?->toISOString(),
             'updated_at' => $this->updated_at?->toISOString(),
             
-            // Relationships (only if loaded)
             'category' => CategoryResource::make($this->whenLoaded('category')),
             'items' => ItemResource::collection($this->whenLoaded('items')),
-            
-            // Counts (only if withCount used)
             'items_count' => $this->whenCounted('items'),
-            
-            // Computed
-            'is_active' => $this->status === 'active',
         ];
     }
 }
@@ -42,16 +45,10 @@ class {Entity}Collection extends ResourceCollection
 }
 ```
 
-## Rules
-
-- Explicit fields (no parent::toArray)
-- Dates: ->toISOString() with ?->
-- Relations: whenLoaded()
-- Counts: whenCounted()
-- Add @mixin for IDE
-
 ## Workflow
 
-1. Read model for fields/relations
-2. Create Resource + Collection
-3. Run `vendor/bin/pint --dirty`
+1. Read Resource and Model
+2. Replace parent::toArray with explicit fields
+3. Fix dates to ISO
+4. Add whenLoaded for relations
+5. Run `vendor/bin/pint --dirty`

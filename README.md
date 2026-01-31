@@ -1,77 +1,104 @@
 # WhylLima Subagents
 
-Specialized AI agents for the WhylLima Laravel project. Each agent is focused on a specific task to optimize token usage and provide precise, context-aware assistance.
+Agentes de IA especializados para o projeto WhylLima (Laravel). Cada agente é focado em uma tarefa específica para otimizar uso de tokens e dar suporte preciso ao código.
 
 ---
 
 ## Quick Start
 
-### In Claude Code
+### No Claude Code
 
 ```text
-# Add marketplace
+# Adicionar marketplace
 /plugin marketplace add /Users/whyl/.claude/plugins/marketplaces/whyl-subagents
 
-# Install plugin
+# Instalar plugin
 /plugin install whyll-agents@whyl-subagents
 
-# Use an agent
+# Usar um agente
 @whyll-agents:full-stack-specialist Create a complete feature for "Categories"
 ```
 
 ---
 
-## Available Agents
+## Agentes disponíveis
 
-### Core Agents (01-laravel)
+### Builders (criar componentes)
 
-| Agent | Purpose | Creates |
-|-------|---------|---------|
-| `full-stack-specialist` | Complete feature from scratch | Migration, Model, Repository, Service, Form Request, Controller, Routes |
-| `model-builder` | Database structure only | Migration, Model |
-| `api-layer-builder` | API for existing model | Repository, Service, Form Request, Controller, Routes |
-| `endpoint-builder` | Routes only | API Routes |
-| `test-builder` | PHPUnit tests | Feature Tests (uses DatabaseTransactions) |
-| `job-builder` | Queue jobs | Jobs, Horizon config |
-| `resource-builder` | API Resources | JsonResource, ResourceCollection |
-| `seeder-builder` | Factories & Seeders | Factories, Seeders, Faker data |
-| `event-builder` | Events & Broadcasting | Events, Listeners, Reverb channels |
+| Agente | Propósito | Cria |
+|--------|-----------|------|
+| `full-stack-specialist` | Feature completa do zero | Migration, Model, Repository, Service, Form Request, Controller, Routes, Resource |
+| `model-builder` | Só estrutura de dados | Migration, Model |
+| `api-layer-builder` | API para model existente | Repository, Service, Form Request, Controller, Routes, Resource |
+| `endpoint-builder` | Só rotas | API Routes |
+| `test-builder` | Testes PHPUnit | Feature Tests (DatabaseTransactions) |
+| `job-builder` | Jobs em fila | Jobs, config Horizon |
+| `resource-builder` | Transformação JSON | JsonResource, ResourceCollection |
+| `seeder-builder` | Dados de teste/dev | Factories, Seeders |
+| `event-builder` | Eventos e broadcasting | Events, Listeners, canais Reverb |
+
+### Qualidade e Fixers (auditar e corrigir)
+
+| Agente | Propósito |
+|--------|-----------|
+| `quality-checker` | Audita código e gera prompts para os fixers |
+| `controller-fixer` | Remove lógica do Controller, delega para Service |
+| `service-fixer` | Garante Repository e retorno de Resources |
+| `repository-fixer` | Converte `DB::` para queries via Model |
+| `model-fixer` | Traits, UUID e relacionamentos corretos |
+| `formrequest-fixer` | Validação create/update com UUID |
+| `resource-fixer` | Campos explícitos, datas ISO, whenLoaded() |
 
 ---
 
-## Agent Details
+## Arquitetura
+
+```
+Controller (sem lógica) → Service (toda lógica) → Repository (acesso via Model) → Model
+                                                                              ↓
+Resposta sempre via Resource ←────────────────────────────────────────────────
+```
+
+**Regras:**
+- **Controller:** só delega para Service; sem try-catch, sem Log, sem queries.
+- **Service:** toda lógica de negócio; sempre retorna Resource.
+- **Repository:** usa sempre **Model** (nunca facade `DB`).
+- **Resource:** todas as respostas da API passam por Resource.
+
+---
+
+## Detalhes dos agentes
 
 ### full-stack-specialist
 
-**Use when:** Creating a completely new feature from database to API.
+**Quando usar:** Criar uma feature nova do zero (banco + API).
 
-**Creates (in order):**
-1. Migration (UUID primary key, soft deletes, indexes)
+**Cria (nessa ordem):**
+1. Migration (UUID como PK, soft deletes, índices)
 2. Model (HasFactory, HasUuids, SoftDeletes, AutoIncrementId, Auditable)
-3. Repository (extends `App\Repositories\Repository`)
-4. Service (extends `App\Services\Service`)
-5. Form Request (store/update validation with UUID ignore)
-6. Controller (CRUD with try-catch and logging)
-7. API Routes (`Route::controller()` pattern)
+3. Repository (extends `App\Repositories\Repository`, queries via Model)
+4. Service (extends `App\Services\Service`, retorna Resources)
+5. Form Request (validação store/update com UUID ignore)
+6. Controller (só delega para Service, sem lógica)
+7. Resource e Collection
+8. API Routes (`Route::controller()`)
 
-**Example:**
+**Exemplo:**
 ```text
-@whyll-agents:full-stack-specialist Create a complete feature for "Categories" with name, slug, description, and status fields.
+@whyll-agents:full-stack-specialist Create a complete feature for "Categories" with name, slug, description, and status.
 ```
 
 ---
 
 ### model-builder
 
-**Use when:** You only need database structure, without API layer.
+**Quando usar:** Só estrutura de banco, sem camada de API.
 
-**Creates:**
-1. Migration (UUID primary key, soft deletes, indexes)
-2. Model (all required traits and relationships)
+**Cria:** Migration, Model (traits e relacionamentos).
 
-**Does NOT create:** Repository, Service, Controller, Routes, Tests
+**Não cria:** Repository, Service, Controller, Routes, Tests.
 
-**Example:**
+**Exemplo:**
 ```text
 @whyll-agents:model-builder Create migration and model for "Tags" with name, slug, color, and entity_uuid (belongsTo Entity).
 ```
@@ -80,20 +107,15 @@ Specialized AI agents for the WhylLima Laravel project. Each agent is focused on
 
 ### api-layer-builder
 
-**Use when:** Model already exists and you need to expose it via API.
+**Quando usar:** Model já existe e precisa expor via API.
 
-**Prerequisites:** Migration and Model must exist.
+**Pré-requisitos:** Migration e Model existentes.
 
-**Creates:**
-1. Repository
-2. Service
-3. Form Request
-4. Controller
-5. API Routes
+**Cria:** Repository, Service, Form Request, Controller, Resource, Collection, Routes.
 
-**Does NOT create:** Migration, Model, Tests
+**Não cria:** Migration, Model, Tests.
 
-**Example:**
+**Exemplo:**
 ```text
 @whyll-agents:api-layer-builder Create API layer for the existing Tag model with CRUD and getByEntity custom action.
 ```
@@ -102,13 +124,13 @@ Specialized AI agents for the WhylLima Laravel project. Each agent is focused on
 
 ### endpoint-builder
 
-**Use when:** Controller exists and you only need to add routes.
+**Quando usar:** Controller existe e só falta definir rotas.
 
-**Prerequisites:** Controller and its methods must exist.
+**Pré-requisitos:** Controller e métodos existentes.
 
-**Creates:** API Routes in `routes/api.php`
+**Cria:** Rotas em `routes/api.php`.
 
-**Example:**
+**Exemplo:**
 ```text
 @whyll-agents:endpoint-builder Add routes for TagController with methods: index, show, store, update, destroy, getByEntity.
 ```
@@ -117,19 +139,15 @@ Specialized AI agents for the WhylLima Laravel project. Each agent is focused on
 
 ### test-builder
 
-**Use when:** API endpoints exist and you need test coverage.
+**Quando usar:** Endpoints existem e precisa de testes.
 
-**Prerequisites:** Controller, routes, and factory must exist.
+**Pré-requisitos:** Controller, rotas e factory existentes.
 
-**Creates:** Feature Tests (PHPUnit)
-- CRUD operations tests
-- Validation tests
-- Authentication tests (401)
-- Custom endpoint tests
+**Cria:** Feature Tests (PHPUnit) – CRUD, validação, auth (401).
 
-**Important:** Uses `DatabaseTransactions` (does NOT wipe database).
+**Importante:** Usa `DatabaseTransactions` (não limpa o banco).
 
-**Example:**
+**Exemplo:**
 ```text
 @whyll-agents:test-builder Create feature tests for TagController covering all CRUD operations and getByEntity.
 ```
@@ -138,20 +156,11 @@ Specialized AI agents for the WhylLima Laravel project. Each agent is focused on
 
 ### job-builder
 
-**Use when:** You need background processing with queues.
+**Quando usar:** Processamento em background com filas.
 
-**Creates:**
-1. Queue Jobs (ShouldQueue interface)
-2. Horizon configuration
-3. Logging setup for `jobs` channel
+**Cria:** Jobs (ShouldQueue), config Horizon, logging no canal `jobs`.
 
-**Features:**
-- Retry logic with backoff
-- Failed job handling
-- Horizon tags for filtering
-- Batch and chain job patterns
-
-**Example:**
+**Exemplo:**
 ```text
 @whyll-agents:job-builder Create a job to sync entities with external API, with retry logic and Horizon monitoring.
 ```
@@ -160,22 +169,13 @@ Specialized AI agents for the WhylLima Laravel project. Each agent is focused on
 
 ### resource-builder
 
-**Use when:** You need to transform Eloquent models to consistent JSON API responses.
+**Quando usar:** Transformar models em respostas JSON padronizadas.
 
-**Prerequisites:** Model must exist.
+**Pré-requisitos:** Model existente.
 
-**Creates:**
-1. JsonResource (model transformation)
-2. ResourceCollection (paginated responses with metadata)
+**Cria:** JsonResource, ResourceCollection (com whenLoaded, whenCounted, datas ISO).
 
-**Features:**
-- Conditional relationships with `whenLoaded()`
-- Counts with `whenCounted()`
-- Computed attributes
-- HATEOAS `_links`
-- Proper date formatting (ISO 8601)
-
-**Example:**
+**Exemplo:**
 ```text
 @whyll-agents:resource-builder Create EntityResource and EntityCollection with category, tags relationships, and comments_count.
 ```
@@ -184,21 +184,13 @@ Specialized AI agents for the WhylLima Laravel project. Each agent is focused on
 
 ### seeder-builder
 
-**Use when:** You need test/development data with realistic values.
+**Quando usar:** Dados de teste ou desenvolvimento.
 
-**Prerequisites:** Model and relationships must exist.
+**Pré-requisitos:** Model e relacionamentos existentes.
 
-**Creates:**
-1. Factory (definition + states)
-2. Seeder (data population)
+**Cria:** Factory (definition + states), Seeder.
 
-**Features:**
-- Faker for realistic data
-- States (published, draft, featured, archived)
-- Relationship handling (recycle, afterCreating)
-- Predefined data seeders
-
-**Example:**
+**Exemplo:**
 ```text
 @whyll-agents:seeder-builder Create EntityFactory with states (published, draft, featured) and EntitySeeder with 50 sample records.
 ```
@@ -207,63 +199,88 @@ Specialized AI agents for the WhylLima Laravel project. Each agent is focused on
 
 ### event-builder
 
-**Use when:** You need domain events, listeners, or real-time broadcasting.
+**Quando usar:** Eventos de domínio, listeners ou broadcasting em tempo real.
 
-**Creates:**
-1. Events (standard and broadcastable)
-2. Listeners (sync and queued)
-3. Channel authorization (`routes/channels.php`)
-4. Event Subscribers
+**Cria:** Events (normais e broadcastable), Listeners (sync e queued), autorização de canais (`routes/channels.php`).
 
-**Features:**
-- Laravel Reverb integration
-- Private, Public, and Presence channels
-- Conditional broadcasting (`broadcastWhen`)
-- Custom event names (`broadcastAs`)
-
-**Example:**
+**Exemplo:**
 ```text
 @whyll-agents:event-builder Create EntityCreated, EntityUpdated events with broadcasting to private channel and notification listener.
 ```
 
 ---
 
-## Decision Guide
+### quality-checker
 
+**Quando usar:** Auditar uma feature ou arquivos para ver se seguem o padrão.
+
+**Faz:** Escaneia controllers, services, repositories, models, form requests e resources; identifica violações; **gera prompts prontos** para copiar e usar com os fixers.
+
+**Exemplo:**
+```text
+@whyll-agents:quality-checker Audit Entity feature
 ```
-Need a new feature?
-│
-├── From scratch (no model exists)
-│   └── Use: full-stack-specialist
-│
-├── Only database structure needed
-│   └── Use: model-builder
-│
-├── Model exists, need API
-│   └── Use: api-layer-builder
-│
-├── Controller exists, need routes
-│   └── Use: endpoint-builder
-│
-├── API exists, need tests
-│   └── Use: test-builder
-│
-├── Need background processing
-│   └── Use: job-builder
-│
-├── Need JSON transformation
-│   └── Use: resource-builder
-│
-├── Need test/dev data
-│   └── Use: seeder-builder
-│
-└── Need real-time/events
-    └── Use: event-builder
+
+**Saída típica:** Lista de componentes com problemas + prompts no formato:
+```text
+@whyll-agents:controller-fixer Fix EntityController
+File: app/Http/Controllers/EntityController.php
+Issues: try-catch blocks, Log:: calls, direct queries
 ```
 
 ---
 
-## Project Stack
+### Fixers (controller-fixer, service-fixer, repository-fixer, model-fixer, formrequest-fixer, resource-fixer)
+
+**Quando usar:** Depois do quality-checker ou quando souber qual arquivo está fora do padrão.
+
+**Uso:** Cole o prompt gerado pelo quality-checker (ou monte um semelhante com arquivo e issues).
+
+**Exemplos:**
+```text
+@whyll-agents:controller-fixer Fix EntityController - remove logic, delegate to Service. File: app/Http/Controllers/EntityController.php
+
+@whyll-agents:repository-fixer Fix EntityRepository - convert DB facade to Model queries. File: app/Repositories/EntityRepository.php
+```
+
+---
+
+## Guia de decisão
+
+```
+Precisa criar algo?
+│
+├── Feature nova do zero
+│   └── full-stack-specialist
+├── Só banco de dados
+│   └── model-builder
+├── Model existe, precisa de API
+│   └── api-layer-builder
+├── Controller existe, só rotas
+│   └── endpoint-builder
+├── API existe, precisa de testes
+│   └── test-builder
+├── Processamento em background
+│   └── job-builder
+├── Transformação JSON
+│   └── resource-builder
+├── Dados de teste/dev
+│   └── seeder-builder
+└── Eventos/real-time
+    └── event-builder
+
+Precisa auditar/corrigir?
+│
+├── Auditar feature ou arquivos
+│   └── quality-checker (gera prompts para os fixers)
+└── Corrigir componente específico
+    └── controller-fixer | service-fixer | repository-fixer
+        | model-fixer | formrequest-fixer | resource-fixer
+```
+
+---
+
+## Stack do projeto
 
 - **PHP:** 8.3.27
 - **Laravel:** v12
@@ -276,74 +293,37 @@ Need a new feature?
 
 ---
 
-## Architecture
+## Convenções
 
-```
-Controller → Service → Repository → Model
-```
-
-### Key Conventions
-
-| Convention | Pattern |
-|-----------|---------|
-| Primary Key | UUID with column name `uuid` |
-| Foreign Keys | `{entity}_uuid` naming |
-| Model Traits | `HasFactory`, `HasUuids`, `SoftDeletes`, `AutoIncrementId`, `Auditable` |
-| Services | Extend `App\Services\Service` |
-| Repositories | Extend `App\Repositories\Repository` |
-| Documentation | PHPDoc in English, no inline comments |
-| Routes | `Route::controller()` grouping |
-| Code Format | `vendor/bin/pint --dirty` |
+| Convenção | Padrão |
+|-----------|--------|
+| Primary Key | UUID, coluna `uuid` |
+| Foreign Keys | `{entity}_uuid` |
+| Traits do Model | HasFactory, HasUuids, SoftDeletes, AutoIncrementId, Auditable |
+| Services | Estendem `App\Services\Service` |
+| Repositories | Estendem `App\Repositories\Repository`, **nunca** usam `DB::` |
+| Controller | Sem lógica; só delega para Service |
+| Respostas | Sempre via Resource |
+| Documentação | PHPDoc em inglês, sem comentários inline |
+| Rotas | Agrupamento com `Route::controller()` |
+| Formatação | `vendor/bin/pint --dirty` |
 
 ---
 
-## Token Optimization
-
-| Scenario | Recommended Agent | Token Cost |
-|----------|-------------------|------------|
-| Complete new feature | `full-stack-specialist` | High (~694 lines) |
-| Just database | `model-builder` | Low (~229 lines) |
-| API for existing model | `api-layer-builder` | Medium (~457 lines) |
-| Just routes | `endpoint-builder` | Low (~277 lines) |
-| Just tests | `test-builder` | Low (~167 lines) |
-| Just jobs | `job-builder` | Low (~139 lines) |
-| JSON transformation | `resource-builder` | Low (~280 lines) |
-| Test/dev data | `seeder-builder` | Medium (~400 lines) |
-| Events/real-time | `event-builder` | Medium (~450 lines) |
-
-**Tip:** Chain smaller agents instead of using full-stack-specialist:
-```
-model-builder → api-layer-builder → test-builder
-```
-
----
-
-## Future Agents (Planned)
-
-| Agent | Purpose | Status |
-|-------|---------|--------|
-| `policy-builder` | Policies and Gates (authorization) | Planned |
-| `observer-builder` | Model Observers (lifecycle hooks) | Planned |
-| `notification-builder` | Mail, SMS, Database notifications | Planned |
-| `command-builder` | Artisan commands | Planned |
-| `middleware-builder` | Custom middleware | Planned |
-
----
-
-## File Structure
+## Estrutura de arquivos
 
 ```
 whyl-subagents/
-├── README.md                          ← This file
+├── README.md
 ├── .claude/
-│   └── settings.local.json            ← Permissions (pint, artisan, composer)
+│   └── settings.local.json
 ├── .claude-plugin/
-│   └── marketplace.json               ← Marketplace definition
+│   └── marketplace.json
 └── categories/
-    ├── README.md                      ← Category overview
+    ├── README.md
     └── 01-laravel/
         ├── .claude-plugin/
-        │   └── plugin.json            ← Plugin definition (whyll-agents)
+        │   └── plugin.json
         ├── full-stack-specialist.md
         ├── model-builder.md
         ├── api-layer-builder.md
@@ -352,12 +332,19 @@ whyl-subagents/
         ├── job-builder.md
         ├── resource-builder.md
         ├── seeder-builder.md
-        └── event-builder.md
+        ├── event-builder.md
+        ├── quality-checker.md
+        ├── controller-fixer.md
+        ├── service-fixer.md
+        ├── repository-fixer.md
+        ├── model-fixer.md
+        ├── formrequest-fixer.md
+        └── resource-fixer.md
 ```
 
 ---
 
-## Commands Reference
+## Comandos úteis
 
 ```bash
 # Laravel
@@ -384,10 +371,6 @@ php artisan test --parallel
 # Queue
 php artisan horizon
 php artisan horizon:status
-
-# Cache
-php artisan config:cache
-php artisan route:cache
 
 # Reverb (WebSockets)
 php artisan reverb:start

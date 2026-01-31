@@ -1,7 +1,7 @@
 {
   "name": "whyll-agents",
-  "version": "1.2.0",
-  "description": "Laravel specialist agents for WhylLima project - Full-stack, model builder, API layer, endpoint, test, job, resource, seeder, and event specialists using Laravel 12, PHP 8.3, UUID-based models, Service-Repository pattern, and Laravel Reverb",
+  "version": "2.0.0",
+  "description": "Laravel specialist agents for WhylLima project - builders and fixers for full-stack, models, API layer, endpoints, tests, jobs, resources, seeders, events, and quality checking. Laravel 12, PHP 8.3, Service-Repository pattern.",
   "author": {
     "name": "Whyl",
     "url": ""
@@ -17,6 +17,13 @@
     "./job-builder.md",
     "./resource-builder.md",
     "./seeder-builder.md",
-    "./event-builder.md"
+    "./event-builder.md",
+    "./quality-checker.md",
+    "./controller-fixer.md",
+    "./service-fixer.md",
+    "./repository-fixer.md",
+    "./model-fixer.md",
+    "./formrequest-fixer.md",
+    "./resource-fixer.md"
   ]
 }
