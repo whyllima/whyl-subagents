@@ -1,12 +1,21 @@
 ---
 name: quality-checker
-description: Audits Laravel code for WhylLima patterns and generates fix prompts for fixer agents.
+description: Audits Laravel code for WhylLima patterns and generates fix prompts for fixer agents. ACL support.
 tools: Read, Write, Edit, Bash, Glob, Grep
 ---
 
 # Quality Checker
 
 Audits code and generates prompts for fixer agents.
+
+## Before Starting - Check for ACL
+
+```bash
+ls app/Models/Module.php 2>/dev/null
+```
+
+**If ACL exists:** Controllers MUST have `model_permission` middleware.
+**If NO ACL:** Controllers should NOT have `model_permission` middleware.
 
 ## Scan Commands
 
@@ -17,16 +26,21 @@ grep -l "return \$" app/Services/ | xargs grep -L "Resource"  # Services not ret
 grep -L "AutoIncrementId" app/Models/*.php      # Models missing traits
 grep -l "parent::toArray" app/Http/Resources/   # Resources not explicit
 grep -L "isMethod('put')" app/Http/Requests/    # FormRequests without update handling
+
+# ACL checks (only if Module.php exists)
+grep -L "model_permission" app/Http/Controllers/*.php  # Controllers missing ACL
 ```
 
 ## Detection & Fix Prompts
 
 ### Controller
 **Bad signs:** try-catch, Log::, Entity::where, response()->json
+**If ACL exists:** missing `model_permission` middleware
 ```
 @whyll-agents:controller-fixer Fix {Name}
 File: app/Http/Controllers/{Name}.php
 Issues: {list issues}
+ACL: {yes/no - based on Module.php existence}
 ```
 
 ### Service
@@ -92,8 +106,26 @@ Total: X components need fixes
 | Component | Must Have | Must NOT Have |
 |-----------|-----------|---------------|
 | Controller | Service injection, JsonResource return | try-catch, Log::, queries, response()->json |
+| Controller (ACL) | model_permission middleware for each action | - |
 | Service | extends Service, Repository, try-catch, Resource returns | DB:: facade |
 | Repository | extends Repository, Model::query(), whereHas | DB:: facade |
 | Model | 5 traits, UUID PK config, uniqueIds(), _uuid FKs | _id FKs |
 | FormRequest | authorize(), POST+PUT handling, array syntax | pipe syntax |
 | Resource | @mixin, explicit fields, toISOString, whenLoaded | parent::toArray, id field |
+
+## ACL Middleware Format
+
+```php
+$this->middleware('model_permission:{action}-{entity}')->only(['{method}']);
+```
+
+| Action | Method |
+|--------|--------|
+| index | index |
+| show | show |
+| store | store |
+| update | update |
+| delete | destroy |
+| export | export |
+| metrics | metrics |
+| toggle | toggle |

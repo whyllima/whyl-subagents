@@ -10,7 +10,7 @@ Coleção de agentes especializados para o projeto WhylLima. Cada agente é foca
 
 Especialistas Laravel 12 para o backend WhylLima. Todos os agentes seguem o padrão Service-Repository com modelos UUID.
 
-**Stack:** PHP 8.3 | Laravel 12 | Sanctum | Horizon | Reverb | PHPUnit
+**Stack:** PHP 8.3 | Laravel 12 | JWT/Sanctum | Horizon | Reverb | PHPUnit
 
 ---
 
@@ -32,31 +32,46 @@ Resposta sempre via Resource ←────────────────
 
 ## Agentes – Builders (criar)
 
-| Agente | Propósito | Cria |
-|--------|-----------|------|
-| `full-stack-specialist` | Feature completa do zero | Migration, Model, Repository, Service, Form Request, Controller, Routes, Resource |
-| `model-builder` | Só estrutura de dados | Migration, Model |
-| `api-layer-builder` | API para model existente | Repository, Service, Form Request, Controller, Routes, Resource |
-| `endpoint-builder` | Só rotas | API Routes |
-| `test-builder` | Testes PHPUnit | Feature Tests (DatabaseTransactions) |
-| `job-builder` | Jobs em fila | Jobs, config Horizon |
-| `resource-builder` | Transformação JSON | JsonResource, ResourceCollection |
-| `seeder-builder` | Dados de teste/dev | Factories, Seeders |
-| `event-builder` | Eventos e broadcasting | Events, Listeners, canais Reverb |
+| Agente | Propósito | Linhas | ~Tokens |
+|--------|-----------|--------|---------|
+| `full-stack-specialist` | Feature completa do zero | 197 | ~500 |
+| `model-builder` | Só estrutura de dados | 63 | ~160 |
+| `api-layer-builder` | API para model existente | 182 | ~450 |
+| `endpoint-builder` | Só rotas | 95 | ~240 |
+| `test-builder` | Testes PHPUnit | 152 | ~380 |
+| `job-builder` | Jobs em fila | 55 | ~140 |
+| `resource-builder` | Transformação JSON | 57 | ~140 |
+| `seeder-builder` | Dados de teste/dev | 68 | ~170 |
+| `event-builder` | Eventos e broadcasting | 79 | ~200 |
+| `jwt-auth-builder` | Autenticação JWT completa | 587 | ~1.5k |
+| `acl-builder` | ACL Modular (3 níveis) | 723 | ~1.8k |
+| `audit-builder` | Auditoria de Models | 421 | ~1k |
 
 ---
 
 ## Agentes – Qualidade e Fixers (auditar e corrigir)
 
-| Agente | Propósito |
-|--------|-----------|
-| `quality-checker` | Audita código e gera prompts prontos para os fixers |
-| `controller-fixer` | Remove lógica do Controller, delega para Service |
-| `service-fixer` | Garante uso de Repository e retorno de Resources |
-| `repository-fixer` | Converte uso de `DB` para queries via Model |
-| `model-fixer` | Adiciona traits, UUID e relacionamentos corretos |
-| `formrequest-fixer` | Ajusta validação para create/update com UUID |
-| `resource-fixer` | Campos explícitos, datas ISO, `whenLoaded()` |
+| Agente | Propósito | Linhas | ~Tokens |
+|--------|-----------|--------|---------|
+| `quality-checker` | Audita código e gera prompts | 131 | ~330 |
+| `controller-fixer` | Remove lógica do Controller | 88 | ~220 |
+| `service-fixer` | Garante Repository e Resources | 75 | ~190 |
+| `repository-fixer` | Converte `DB` para Model | 61 | ~150 |
+| `model-fixer` | Traits, UUID e relacionamentos | 57 | ~140 |
+| `formrequest-fixer` | Validação create/update | 50 | ~125 |
+| `resource-fixer` | Campos explícitos, datas ISO | 54 | ~135 |
+
+---
+
+## Resumo de Tokens
+
+| Categoria | Total Linhas | ~Tokens |
+|-----------|--------------|---------|
+| Builders | 2.679 | ~6.7k |
+| Fixers | 516 | ~1.3k |
+| **Total** | **3.195** | **~8k** |
+
+> **Nota:** Estimativa baseada em ~2.5 tokens/linha. Tokens reais podem variar.
 
 ---
 
@@ -72,6 +87,9 @@ Resposta sempre via Resource ←────────────────
 - Transformação JSON → `resource-builder`
 - Dados de teste/dev → `seeder-builder`
 - Eventos/real-time → `event-builder`
+- Autenticação JWT → `jwt-auth-builder`
+- Sistema de permissões modular → `acl-builder`
+- Auditoria de alterações → `audit-builder`
 
 **Auditar e corrigir**
 - Auditar feature ou arquivos → `quality-checker` (gera prompts para os fixers)
@@ -105,6 +123,18 @@ Resposta sempre via Resource ←────────────────
 ```text
 # Criar feature completa
 @whyll-agents:full-stack-specialist Create a complete feature for "Categories"
+
+# Configurar autenticação JWT
+@whyll-agents:jwt-auth-builder Setup JWT authentication
+
+# Configurar ACL modular (User → Role → Module → Permission)
+@whyll-agents:acl-builder Setup modular ACL system
+
+# Configurar auditoria de models
+@whyll-agents:audit-builder Setup auditing system
+
+# Verificar configuração de audit nos models
+@whyll-agents:audit-builder Check audit configuration in models
 
 # Auditar e obter prompts de correção
 @whyll-agents:quality-checker Audit Entity feature

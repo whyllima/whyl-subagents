@@ -25,29 +25,42 @@ Agentes de IA especializados para o projeto WhylLima (Laravel). Cada agente é f
 
 ### Builders (criar componentes)
 
-| Agente | Propósito | Cria |
-|--------|-----------|------|
-| `full-stack-specialist` | Feature completa do zero | Migration, Model, Repository, Service, Form Request, Controller, Routes, Resource |
-| `model-builder` | Só estrutura de dados | Migration, Model |
-| `api-layer-builder` | API para model existente | Repository, Service, Form Request, Controller, Routes, Resource |
-| `endpoint-builder` | Só rotas | API Routes |
-| `test-builder` | Testes PHPUnit | Feature Tests (DatabaseTransactions) |
-| `job-builder` | Jobs em fila | Jobs, config Horizon |
-| `resource-builder` | Transformação JSON | JsonResource, ResourceCollection |
-| `seeder-builder` | Dados de teste/dev | Factories, Seeders |
-| `event-builder` | Eventos e broadcasting | Events, Listeners, canais Reverb |
+| Agente | Propósito | Linhas | ~Tokens |
+|--------|-----------|--------|---------|
+| `full-stack-specialist` | Feature completa do zero | 197 | ~500 |
+| `model-builder` | Só estrutura de dados | 63 | ~160 |
+| `api-layer-builder` | API para model existente | 182 | ~450 |
+| `endpoint-builder` | Só rotas | 95 | ~240 |
+| `test-builder` | Testes PHPUnit | 152 | ~380 |
+| `job-builder` | Jobs em fila | 55 | ~140 |
+| `resource-builder` | Transformação JSON | 57 | ~140 |
+| `seeder-builder` | Dados de teste/dev | 68 | ~170 |
+| `event-builder` | Eventos e broadcasting | 79 | ~200 |
+| `jwt-auth-builder` | Autenticação JWT completa | 587 | ~1.5k |
+| `acl-builder` | Sistema ACL Modular (3 níveis) | 723 | ~1.8k |
+| `audit-builder` | Auditoria de Models | 421 | ~1k |
 
 ### Qualidade e Fixers (auditar e corrigir)
 
-| Agente | Propósito |
-|--------|-----------|
-| `quality-checker` | Audita código e gera prompts para os fixers |
-| `controller-fixer` | Remove lógica do Controller, delega para Service |
-| `service-fixer` | Garante Repository e retorno de Resources |
-| `repository-fixer` | Converte `DB::` para queries via Model |
-| `model-fixer` | Traits, UUID e relacionamentos corretos |
-| `formrequest-fixer` | Validação create/update com UUID |
-| `resource-fixer` | Campos explícitos, datas ISO, whenLoaded() |
+| Agente | Propósito | Linhas | ~Tokens |
+|--------|-----------|--------|---------|
+| `quality-checker` | Audita código e gera prompts | 131 | ~330 |
+| `controller-fixer` | Remove lógica do Controller | 88 | ~220 |
+| `service-fixer` | Garante Repository e Resources | 75 | ~190 |
+| `repository-fixer` | Converte `DB::` para Model | 61 | ~150 |
+| `model-fixer` | Traits, UUID e relacionamentos | 57 | ~140 |
+| `formrequest-fixer` | Validação create/update | 50 | ~125 |
+| `resource-fixer` | Campos explícitos, datas ISO | 54 | ~135 |
+
+### Resumo de Tokens
+
+| Categoria | Agentes | Total Linhas | ~Tokens |
+|-----------|---------|--------------|---------|
+| Builders | 12 | 2.679 | ~6.7k |
+| Fixers | 7 | 516 | ~1.3k |
+| **Total** | **19** | **3.195** | **~8k** |
+
+> **Nota:** Estimativa baseada em ~2.5 tokens/linha de markdown/código.
 
 ---
 
@@ -210,6 +223,82 @@ Resposta sempre via Resource ←────────────────
 
 ---
 
+### jwt-auth-builder
+
+**Quando usar:** Configurar autenticação JWT com single-session, refresh token, password reset.
+
+**Cria:** AuthController, AuthService, AuthRepository, JwtMiddleware, FormRequests, Resources.
+
+**Detecta ACL:** Verifica se existe ACL Modular ou Simple para incluir roles/permissions no `me()`.
+
+**Exemplo:**
+```text
+@whyll-agents:jwt-auth-builder Setup JWT authentication with password reset and profile update
+```
+
+---
+
+### acl-builder
+
+**Quando usar:** Configurar sistema de permissões modular com três níveis: `User → Role → Module → Permission`.
+
+**Arquitetura:**
+```
+User ──has── Role ──has── Module ──has── Permission
+              │             │
+              └─────────────┘
+         role_modules_permissions
+```
+
+**Cria:**
+- Migrations (modules, model_has_permissions, role_modules_permissions)
+- Models (Module, ModelHasPermission, RoleModulesPermission, Role, Permission)
+- Traits (HasNameLookup, HasModulePermission)
+- Middleware (ModelAndPermissionMiddleware)
+- Exception (NotLoggedInException)
+- Seeders (PermissionSeeder, ModuleSeeder, RoleSeeder)
+
+**Formato de permissão:** `{action}-{module}` (ex: `show-rule`, `index-user`)
+
+**Uso em Controller:**
+```php
+$this->middleware('model_permission:show-entity')->only(['show']);
+$this->middleware('model_permission:index-entity')->only(['index']);
+```
+
+**Exemplo:**
+```text
+@whyll-agents:acl-builder Setup modular ACL system with modules: user, role, entity, campaign
+```
+
+---
+
+### audit-builder
+
+**Quando usar:** Configurar sistema de auditoria ou verificar se models estão configurados para audit.
+
+**Cria:**
+- Config `audit.php` customizado
+- Migration `audits` com UUID
+- Resolvers (IpAddress, UserAgent, Url)
+- Resources (AuditResource, AuditCollection)
+
+**Também verifica:**
+- Models sem interface `ContractAuditable`
+- Models sem trait `Auditable`
+- Models com password sem `$auditExclude`
+
+**Exemplos:**
+```text
+# Setup completo
+@whyll-agents:audit-builder Setup auditing system
+
+# Verificar models
+@whyll-agents:audit-builder Check audit configuration in all models
+```
+
+---
+
 ### quality-checker
 
 **Quando usar:** Auditar uma feature ou arquivos para ver se seguem o padrão.
@@ -266,8 +355,14 @@ Precisa criar algo?
 │   └── resource-builder
 ├── Dados de teste/dev
 │   └── seeder-builder
-└── Eventos/real-time
-    └── event-builder
+├── Eventos/real-time
+│   └── event-builder
+├── Autenticação JWT
+│   └── jwt-auth-builder
+├── Sistema de permissões modular
+│   └── acl-builder
+└── Auditoria de models
+    └── audit-builder
 
 Precisa auditar/corrigir?
 │
@@ -284,12 +379,13 @@ Precisa auditar/corrigir?
 
 - **PHP:** 8.3.27
 - **Laravel:** v12
-- **Auth:** Sanctum v4
+- **Auth:** JWT (tymon/jwt-auth) ou Sanctum v4
 - **Queue:** Horizon v5
 - **Real-time:** Reverb v1
 - **Performance:** Octane v2
 - **Code Style:** Pint v1
 - **Testing:** PHPUnit v11
+- **Auditing:** owen-it/laravel-auditing
 
 ---
 
@@ -333,6 +429,9 @@ whyl-subagents/
         ├── resource-builder.md
         ├── seeder-builder.md
         ├── event-builder.md
+        ├── jwt-auth-builder.md
+        ├── acl-builder.md
+        ├── audit-builder.md
         ├── quality-checker.md
         ├── controller-fixer.md
         ├── service-fixer.md

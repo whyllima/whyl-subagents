@@ -1,6 +1,6 @@
 ---
 name: api-layer-builder
-description: Creates Laravel API layer (Repository, Service, FormRequest, Controller, Routes, Resource) for existing models.
+description: Creates Laravel API layer (Repository, Service, FormRequest, Controller, Routes, Resource) for existing models. ACL support.
 tools: Read, Write, Edit, Bash, Glob, Grep
 ---
 
@@ -13,6 +13,16 @@ Creates: Repository → Service → FormRequest → Controller → Resource → 
 - **DO NOT** read base classes or existing files
 - **Create directly** using patterns
 - **Run pint once** at end
+
+## Before Starting - Check for ACL
+
+```bash
+ls app/Models/Module.php 2>/dev/null
+ls app/Traits/HasModulePermission.php 2>/dev/null
+```
+
+**If ACL exists:** Add middleware permissions to Controller constructor.
+**If NO ACL:** Create Controller without middleware.
 
 ## Architecture
 
@@ -76,11 +86,38 @@ class {Entity}Service extends Service
 
 ### Controller (NO LOGIC)
 
+#### Without ACL
+
 ```php
 class {Entity}Controller extends Controller
 {
     private {Entity}Service $service;
     public function __construct() { $this->service = new {Entity}Service(); }
+    public function index(): JsonResource { return $this->service->index(); }
+    public function show({Entity} $e): JsonResource { return $this->service->show($e); }
+    public function store({Entity}Request $r): JsonResource { return $this->service->store($r->validated()); }
+    public function update({Entity} $e, {Entity}Request $r): JsonResource { return $this->service->update($e, $r->validated()); }
+    public function destroy({Entity} $e): JsonResource { return $this->service->destroy($e); }
+}
+```
+
+#### With ACL (if Module.php exists)
+
+```php
+class {Entity}Controller extends Controller
+{
+    private {Entity}Service $service;
+
+    public function __construct()
+    {
+        $this->service = new {Entity}Service();
+        $this->middleware('model_permission:index-{entity}')->only(['index']);
+        $this->middleware('model_permission:show-{entity}')->only(['show']);
+        $this->middleware('model_permission:store-{entity}')->only(['store']);
+        $this->middleware('model_permission:update-{entity}')->only(['update']);
+        $this->middleware('model_permission:delete-{entity}')->only(['destroy']);
+    }
+
     public function index(): JsonResource { return $this->service->index(); }
     public function show({Entity} $e): JsonResource { return $this->service->show($e); }
     public function store({Entity}Request $r): JsonResource { return $this->service->store($r->validated()); }
@@ -122,6 +159,8 @@ class {Entity}Collection extends ResourceCollection { public $collects = {Entity
 ### Routes
 
 ```php
+use App\Http\Controllers\{Entity}Controller;
+
 Route::controller({Entity}Controller::class)->prefix('{entities}')->group(function () {
     Route::get('/', 'index');
     Route::get('/{entity}', 'show');
@@ -131,10 +170,13 @@ Route::controller({Entity}Controller::class)->prefix('{entities}')->group(functi
 });
 ```
 
+**Note:** Always add `use` import at top of routes file, never use inline namespace.
+
 ## Workflow
 
-1. Verify model exists
-2. Read model for fields/relations
-3. Create: Repository → Service → FormRequest → Controller → Resource → Collection
-4. Edit routes/api.php
-5. Run `vendor/bin/pint --dirty`
+1. **Check for ACL** (ls app/Models/Module.php)
+2. Verify model exists
+3. Read model for fields/relations
+4. Create: Repository → Service → FormRequest → Controller (with ACL if exists) → Resource → Collection
+5. Edit routes/api.php
+6. Run `vendor/bin/pint --dirty`
