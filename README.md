@@ -1,6 +1,17 @@
 # WhylLima Subagents
 
-Agentes de IA especializados para o projeto WhylLima (Laravel). Cada agente é focado em uma tarefa específica para otimizar uso de tokens e dar suporte preciso ao código.
+Agentes de IA especializados para o projeto WhylLima. Cada agente é focado em uma tarefa específica para otimizar uso de tokens e dar suporte preciso ao código.
+
+**Hub:** [github.com/whyllima/whyl-subagents](https://github.com/whyllima/whyl-subagents)
+
+---
+
+## Plugins disponíveis
+
+| Plugin | Categoria | Descrição |
+|--------|-----------|-----------|
+| **whyll-agents** | Laravel | Builders e fixers: full-stack, model, API, endpoint, test, job, resource, seeder, event, JWT, ACL, audit, quality-checker e fixers. Laravel 12, PHP 8.3, Service-Repository. |
+| **whyll-agents-biz** | Business & Product | product-manager, ux-researcher, business-analyst, content-marketer, project-manager, scrum-master, customer-success, sales-engineer, technical-writer, legal-advisor, wordpress-master. Discovery pipeline: ideia → problema → requisitos → posicionamento. |
 
 ---
 
@@ -12,16 +23,20 @@ Agentes de IA especializados para o projeto WhylLima (Laravel). Cada agente é f
 # Adicionar marketplace
 /plugin marketplace add /Users/whyl/.claude/plugins/marketplaces/whyl-subagents
 
-# Instalar plugin
+# Instalar plugins
 /plugin install whyll-agents@whyl-subagents
+/plugin install whyll-agents-biz@whyl-subagents
 
-# Usar um agente
+# Usar agente Laravel
 @whyll-agents:full-stack-specialist Create a complete feature for "Categories"
+
+# Usar agente Business & Product
+@whyll-agents-biz:product-manager Define product idea and value hypothesis
 ```
 
 ---
 
-## Agentes disponíveis
+## Agentes disponíveis (whyll-agents – Laravel)
 
 ### Builders (criar componentes)
 
@@ -52,7 +67,7 @@ Agentes de IA especializados para o projeto WhylLima (Laravel). Cada agente é f
 | `formrequest-fixer` | Validação create/update | 50 | ~125 |
 | `resource-fixer` | Campos explícitos, datas ISO | 54 | ~135 |
 
-### Resumo de Tokens
+### Resumo de Tokens (Laravel)
 
 | Categoria | Agentes | Total Linhas | ~Tokens |
 |-----------|---------|--------------|---------|
@@ -64,7 +79,27 @@ Agentes de IA especializados para o projeto WhylLima (Laravel). Cada agente é f
 
 ---
 
-## Arquitetura
+## Agentes disponíveis (whyll-agents-biz – Business & Product)
+
+| Agente | Papel no pipeline / Uso |
+|--------|---------------------------|
+| `product-manager` | Gera e valida a ideia (o quê e por quê) |
+| `ux-researcher` | Confirma se o problema é real (dor do usuário) |
+| `business-analyst` | Traduz a ideia em requisitos e viabilidade |
+| `content-marketer` | Posicionamento e narrativa |
+| `project-manager` | Planejamento e entrega |
+| `scrum-master` | Processo ágil |
+| `customer-success-manager` | Retenção e sucesso do cliente |
+| `sales-engineer` | Demos e adoção técnica |
+| `technical-writer` | Documentação |
+| `legal-advisor` | Conformidade e riscos |
+| `wordpress-master` | Conteúdo e WordPress |
+
+**Discovery pipeline:** product-manager → ux-researcher → business-analyst → content-marketer. Detalhes em [categories/03-business-product/README.md](categories/03-business-product/README.md) e [DISCOVERY-PIPELINE.md](categories/03-business-product/DISCOVERY-PIPELINE.md).
+
+---
+
+## Arquitetura (Laravel)
 
 ```
 Controller (sem lógica) → Service (toda lógica) → Repository (acesso via Model) → Model
@@ -417,28 +452,44 @@ whyl-subagents/
 │   └── marketplace.json
 └── categories/
     ├── README.md
-    └── 01-laravel/
+    ├── 01-laravel/
+    │   ├── .claude-plugin/
+    │   │   └── plugin.json
+    │   ├── full-stack-specialist.md
+    │   ├── model-builder.md
+    │   ├── api-layer-builder.md
+    │   ├── endpoint-builder.md
+    │   ├── test-builder.md
+    │   ├── job-builder.md
+    │   ├── resource-builder.md
+    │   ├── seeder-builder.md
+    │   ├── event-builder.md
+    │   ├── jwt-auth-builder.md
+    │   ├── acl-builder.md
+    │   ├── audit-builder.md
+    │   ├── quality-checker.md
+    │   ├── controller-fixer.md
+    │   ├── service-fixer.md
+    │   ├── repository-fixer.md
+    │   ├── model-fixer.md
+    │   ├── formrequest-fixer.md
+    │   └── resource-fixer.md
+    └── 03-business-product/
         ├── .claude-plugin/
         │   └── plugin.json
-        ├── full-stack-specialist.md
-        ├── model-builder.md
-        ├── api-layer-builder.md
-        ├── endpoint-builder.md
-        ├── test-builder.md
-        ├── job-builder.md
-        ├── resource-builder.md
-        ├── seeder-builder.md
-        ├── event-builder.md
-        ├── jwt-auth-builder.md
-        ├── acl-builder.md
-        ├── audit-builder.md
-        ├── quality-checker.md
-        ├── controller-fixer.md
-        ├── service-fixer.md
-        ├── repository-fixer.md
-        ├── model-fixer.md
-        ├── formrequest-fixer.md
-        └── resource-fixer.md
+        ├── README.md
+        ├── DISCOVERY-PIPELINE.md
+        ├── product-manager.md
+        ├── ux-researcher.md
+        ├── business-analyst.md
+        ├── content-marketer.md
+        ├── project-manager.md
+        ├── scrum-master.md
+        ├── customer-success-manager.md
+        ├── sales-engineer.md
+        ├── technical-writer.md
+        ├── legal-advisor.md
+        └── wordpress-master.md
 ```
 
 ---
@@ -485,3 +536,7 @@ php artisan db:seed --class=EntitySeeder
 ## License
 
 MIT
+
+---
+
+**Hub:** [github.com/whyllima/whyl-subagents](https://github.com/whyllima/whyl-subagents)

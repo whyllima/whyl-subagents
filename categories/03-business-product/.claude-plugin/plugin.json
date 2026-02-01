@@ -1,0 +1,24 @@
+{
+  "name": "whyll-agents-biz",
+  "version": "2.0.0",
+  "description": "Business and product specialist agents for WhylLima project - product strategy, UX research, business analysis, content marketing, project management, customer success, legal, sales engineering, scrum, technical writing. Discovery pipeline: product-manager → ux-researcher → business-analyst → content-marketer.",
+  "author": {
+    "name": "Whyl",
+    "url": "https://github.com/whyllima/whyl-subagents"
+  },
+  "repository": "https://github.com/whyllima/whyl-subagents",
+  "license": "MIT",
+  "agents": [
+    "./product-manager.md",
+    "./ux-researcher.md",
+    "./business-analyst.md",
+    "./content-marketer.md",
+    "./project-manager.md",
+    "./scrum-master.md",
+    "./customer-success-manager.md",
+    "./sales-engineer.md",
+    "./technical-writer.md",
+    "./legal-advisor.md",
+    "./wordpress-master.md"
+  ]
+}

@@ -4,9 +4,9 @@
   "description": "Laravel specialist agents for WhylLima project - builders and fixers for full-stack, models, API layer, endpoints, tests, jobs, resources, seeders, events, JWT auth, ACL, audit, and quality checking. Laravel 12, PHP 8.3, Service-Repository pattern.",
   "author": {
     "name": "Whyl",
-    "url": ""
+    "url": "https://github.com/whyllima/whyl-subagents"
   },
-  "repository": "",
+  "repository": "https://github.com/whyllima/whyl-subagents",
   "license": "MIT",
   "agents": [
     "./full-stack-specialist.md",

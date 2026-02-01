@@ -2,19 +2,33 @@
 
 Coleção de agentes especializados para o projeto WhylLima. Cada agente é focado em uma tarefa específica para otimizar uso de tokens e dar suporte preciso ao código.
 
+**Hub:** [github.com/whyllima/whyl-subagents](https://github.com/whyllima/whyl-subagents)
+
 ---
 
 ## Categorias
 
-### 01-laravel
+### 01-laravel (`whyll-agents`)
 
 Especialistas Laravel 12 para o backend WhylLima. Todos os agentes seguem o padrão Service-Repository com modelos UUID.
 
 **Stack:** PHP 8.3 | Laravel 12 | JWT/Sanctum | Horizon | Reverb | PHPUnit
 
+**Uso:** `@whyll-agents:<agente>`
+
 ---
 
-## Arquitetura
+### 03-business-product (`whyll-agents-biz`)
+
+Especialistas em produto, UX, negócios e conteúdo. Inclui o **Discovery Pipeline:** product-manager → ux-researcher → business-analyst → content-marketer (ideia → problema real → requisitos/viabilidade → posicionamento).
+
+**Detalhes:** [03-business-product/README.md](03-business-product/README.md) | [DISCOVERY-PIPELINE.md](03-business-product/DISCOVERY-PIPELINE.md)
+
+**Uso:** `@whyll-agents-biz:<agente>`
+
+---
+
+## Arquitetura (01-laravel)
 
 ```
 Controller (sem lógica) → Service (toda lógica) → Repository (acesso via Model) → Model
@@ -30,7 +44,7 @@ Resposta sempre via Resource ←────────────────
 
 ---
 
-## Agentes – Builders (criar)
+## Agentes Laravel – Builders (criar)
 
 | Agente | Propósito | Linhas | ~Tokens |
 |--------|-----------|--------|---------|
@@ -49,7 +63,7 @@ Resposta sempre via Resource ←────────────────
 
 ---
 
-## Agentes – Qualidade e Fixers (auditar e corrigir)
+## Agentes Laravel – Qualidade e Fixers (auditar e corrigir)
 
 | Agente | Propósito | Linhas | ~Tokens |
 |--------|-----------|--------|---------|
@@ -63,7 +77,7 @@ Resposta sempre via Resource ←────────────────
 
 ---
 
-## Resumo de Tokens
+## Resumo de Tokens (01-laravel)
 
 | Categoria | Total Linhas | ~Tokens |
 |-----------|--------------|---------|
@@ -75,7 +89,7 @@ Resposta sempre via Resource ←────────────────
 
 ---
 
-## Guia de decisão
+## Guia de decisão (01-laravel)
 
 **Criar algo novo**
 - Feature completa do zero → `full-stack-specialist`
@@ -102,7 +116,7 @@ Resposta sempre via Resource ←────────────────
 
 ---
 
-## Convenções
+## Convenções (01-laravel)
 
 | Convenção | Padrão |
 |-----------|--------|
@@ -120,6 +134,7 @@ Resposta sempre via Resource ←────────────────
 
 ## Exemplos de uso
 
+**Laravel (`whyll-agents`):**
 ```text
 # Criar feature completa
 @whyll-agents:full-stack-specialist Create a complete feature for "Categories"
@@ -143,4 +158,17 @@ Resposta sempre via Resource ←────────────────
 @whyll-agents:controller-fixer Fix EntityController
 File: app/Http/Controllers/EntityController.php
 Issues: try-catch blocks, Log:: calls, direct queries
+```
+
+**Business & Product (`whyll-agents-biz`):**
+```text
+# Discovery pipeline: ideia → problema → requisitos → posicionamento
+@whyll-agents-biz:product-manager Define product idea and value hypothesis for "X"
+@whyll-agents-biz:ux-researcher Validate if user pain is real for "X"
+@whyll-agents-biz:business-analyst Translate idea into requirements and viability
+@whyll-agents-biz:content-marketer Define positioning and narrative
+
+# Outros agentes
+@whyll-agents-biz:project-manager Plan project timeline and resources
+@whyll-agents-biz:scrum-master Facilitate sprint planning
 ```
