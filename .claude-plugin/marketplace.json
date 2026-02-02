@@ -6,7 +6,7 @@
   },
   "metadata": {
     "version": "1.0.0",
-    "description": "Specialized Claude Code subagents for WhylLima project - Laravel specialists and Business & Product specialists",
+    "description": "Specialized Claude Code subagents for WhylLima project - Laravel, Front-end (Nuxt), and Business & Product specialists",
     "hub": "https://github.com/whyllima/whyl-subagents"
   },
   "plugins": [
@@ -17,6 +17,14 @@
       "version": "2.3.0",
       "category": "development",
       "keywords": ["laravel", "php", "api", "service-repository", "uuid", "whyllima"]
+    },
+    {
+      "name": "whyll-agents-front",
+      "source": "./categories/02-front-end",
+      "description": "Front-end specialist agents - Nuxt 3 project builder with Pinia, Axios, PrimeVue, TypeScript, i18n, and recommended tooling",
+      "version": "1.0.0",
+      "category": "development",
+      "keywords": ["nuxt", "vue", "pinia", "primevue", "axios", "typescript", "i18n", "whyllima"]
     },
     {
       "name": "whyll-agents-biz",

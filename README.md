@@ -11,6 +11,7 @@ Agentes de IA especializados para o projeto WhylLima. Cada agente é focado em u
 | Plugin | Categoria | Descrição |
 |--------|-----------|-----------|
 | **whyll-agents** | Laravel | Builders e fixers: full-stack, model, API, endpoint, test, job, resource, seeder, event, JWT, ACL, audit, quality-checker e fixers. Laravel 12, PHP 8.3, Service-Repository. |
+| **whyll-agents-front** | Front-end | nuxt-project-builder: cria projeto Nuxt 3 com Pinia, Axios, PrimeVue, TypeScript, i18n e ferramentas recomendadas. |
 | **whyll-agents-biz** | Business & Product | product-manager, ux-researcher, business-analyst, content-marketer, project-manager, scrum-master, customer-success, sales-engineer, technical-writer, legal-advisor, wordpress-master. Discovery pipeline: ideia → problema → requisitos → posicionamento. |
 
 ---
@@ -25,10 +26,14 @@ Agentes de IA especializados para o projeto WhylLima. Cada agente é focado em u
 
 # Instalar plugins
 /plugin install whyll-agents@whyl-subagents
+/plugin install whyll-agents-front@whyl-subagents
 /plugin install whyll-agents-biz@whyl-subagents
 
 # Usar agente Laravel
 @whyll-agents:full-stack-specialist Create a complete feature for "Categories"
+
+# Usar agente Front-end (Nuxt)
+@whyll-agents-front:nuxt-project-builder Create a Nuxt project with Pinia, Axios, PrimeVue, and i18n
 
 # Usar agente Business & Product
 @whyll-agents-biz:product-manager Define product idea and value hypothesis

@@ -1,0 +1,14 @@
+{
+  "name": "whyll-agents-front",
+  "version": "1.0.0",
+  "description": "Front-end specialist agents for WhylLima project - Nuxt 3 project builder with Pinia, Axios, PrimeVue, TypeScript, i18n, and recommended tooling.",
+  "author": {
+    "name": "Whyl",
+    "url": "https://github.com/whyllima/whyl-subagents"
+  },
+  "repository": "https://github.com/whyllima/whyl-subagents",
+  "license": "MIT",
+  "agents": [
+    "./nuxt-project-builder.md"
+  ]
+}
