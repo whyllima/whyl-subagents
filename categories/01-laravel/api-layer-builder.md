@@ -66,20 +66,20 @@ class {Entity}Service extends Service
     }
     public function index(): JsonResource {
         try { return new {Entity}Collection($this->repository->index(request()->query())); }
-        catch (Exception $e) { Log::channel('services')->error($e->getMessage()); return new ErrorResource($this->model); }
+        catch (Exception $e) { Log::channel('services')->error("{Entity}Service:index - {$e->getMessage()}"); return new ErrorResource($this->model); }
     }
     public function show({Entity} $e): JsonResource { return new {Entity}Resource($e); }
     public function store(array $d): JsonResource {
         try { return new {Entity}Resource({Entity}::create($d)); }
-        catch (Exception $e) { Log::channel('services')->error($e->getMessage()); return new ErrorResource($this->model); }
+        catch (Exception $e) { Log::channel('services')->error("{Entity}Service:store - {$e->getMessage()}"); return new ErrorResource($this->model); }
     }
     public function update({Entity} $e, array $d): JsonResource {
         try { $e->update($d); return new {Entity}Resource($e->fresh()); }
-        catch (Exception $e) { Log::channel('services')->error($e->getMessage()); return new ErrorResource($this->model); }
+        catch (Exception $e) { Log::channel('services')->error("{Entity}Service:update - {$e->getMessage()}"); return new ErrorResource($this->model); }
     }
     public function destroy({Entity} $e): JsonResource {
         try { $e->delete(); return new {Entity}Resource($e); }
-        catch (Exception $e) { Log::channel('services')->error($e->getMessage()); return new ErrorResource($this->model); }
+        catch (Exception $e) { Log::channel('services')->error("{Entity}Service:destroy - {$e->getMessage()}"); return new ErrorResource($this->model); }
     }
 }
 ```

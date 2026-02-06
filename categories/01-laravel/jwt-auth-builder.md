@@ -205,6 +205,7 @@ class AuthService extends Service
 
 ### Common methods (both versions)
 
+```php
     public function logout(): JsonResource
     {
         try {
