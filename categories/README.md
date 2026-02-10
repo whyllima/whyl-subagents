@@ -18,6 +18,16 @@ Especialistas Laravel 12 para o backend WhylLima. Todos os agentes seguem o padr
 
 ---
 
+### 02-front-end (`whyll-agents-front`)
+
+Especialistas Nuxt 3 para o front-end. Builders para páginas, componentes, stores, composables, API services, i18n, layouts e plugins.
+
+**Stack:** Nuxt 3 | Vue 3 | Pinia | Axios | PrimeVue | Tailwind CSS | TypeScript | @nuxtjs/i18n
+
+**Uso:** `@whyll-agents-front:<agente>`
+
+---
+
 ### 03-business-product (`whyll-agents-biz`)
 
 Especialistas em produto, UX, negócios e conteúdo. Inclui o **Discovery Pipeline:** product-manager → ux-researcher → business-analyst → content-marketer (ideia → problema real → requisitos/viabilidade → posicionamento).
@@ -25,6 +35,57 @@ Especialistas em produto, UX, negócios e conteúdo. Inclui o **Discovery Pipeli
 **Detalhes:** [03-business-product/README.md](03-business-product/README.md) | [DISCOVERY-PIPELINE.md](03-business-product/DISCOVERY-PIPELINE.md)
 
 **Uso:** `@whyll-agents-biz:<agente>`
+
+---
+
+## Agentes Front-end (02-front-end)
+
+| Agente | Propósito | Linhas | ~Tokens |
+|--------|-----------|--------|---------|
+| `nuxt-project-builder` | Projeto Nuxt 3 do zero | 79 | ~200 |
+| `page-builder` | Páginas com file-based routing | 53 | ~150 |
+| `component-builder` | Componentes Vue SFC | 49 | ~145 |
+| `store-builder` | Pinia stores com SSR safety | 77 | ~170 |
+| `composable-builder` | Composables reutilizáveis | 55 | ~135 |
+| `api-service-builder` | Camada API: Axios → Proxy → Nitro | 87 | ~220 |
+| `i18n-manager` | Locales e traduções | 72 | ~150 |
+| `layout-builder` | Layouts, Sidebar, Menu, dark mode | 55 | ~155 |
+| `plugin-builder` | Plugins Nuxt (client/server) | 52 | ~120 |
+
+### Resumo de Tokens (02-front-end)
+
+| Categoria | Total Linhas | ~Tokens |
+|-----------|--------------|---------|
+| Builders | 579 | ~1.4k |
+
+---
+
+### Convenções (02-front-end)
+
+| Convenção | Padrão |
+|-----------|--------|
+| SFC Order | `<script setup>` → `<template>` → `<style scoped>` |
+| PrimeVue | Componentes auto-importados, NUNCA importar. Só utilities: `FilterMatchMode`, `useToast`, `useConfirm` |
+| Error Handling | `.then().catch()` para async. try/catch só para ops síncronas críticas |
+| SSR Safety | `import.meta.client`, `<ClientOnly>`, `typeof window !== 'undefined'` |
+| i18n | `useI18n()` + `t()` para todo texto. Estratégia `no_prefix` |
+| State | Pinia stores para estado complexo; composables para lógica UI |
+| Styling | Tailwind + `:deep()` para PrimeVue overrides |
+| Path Alias | `@/` → `app/`, `#imports` para auto-imports Nuxt |
+
+---
+
+### Guia de decisão (02-front-end)
+
+- Projeto novo do zero → `nuxt-project-builder`
+- Nova página/rota → `page-builder`
+- Novo componente visual → `component-builder`
+- Gerenciamento de estado → `store-builder`
+- Lógica reutilizável/UI → `composable-builder`
+- Integração com API externa → `api-service-builder`
+- Traduções/idiomas → `i18n-manager`
+- Layout/sidebar/menu/dark mode → `layout-builder`
+- Plugin Vue/Nuxt → `plugin-builder`
 
 ---
 
@@ -158,6 +219,36 @@ Resposta sempre via Resource ←────────────────
 @whyll-agents:controller-fixer Fix EntityController
 File: app/Http/Controllers/EntityController.php
 Issues: try-catch blocks, Log:: calls, direct queries
+```
+
+**Front-end (`whyll-agents-front`):**
+```text
+# Criar projeto Nuxt do zero
+@whyll-agents-front:nuxt-project-builder Create a Nuxt project called "my-app"
+
+# Criar página
+@whyll-agents-front:page-builder Create page /dashboard/analytics
+
+# Criar componente
+@whyll-agents-front:component-builder Create UserProfileCard in dashboard domain
+
+# Criar store
+@whyll-agents-front:store-builder Create store for managing notifications
+
+# Criar composable
+@whyll-agents-front:composable-builder Create useDebounce composable
+
+# Criar camada de API
+@whyll-agents-front:api-service-builder Create API service for /users endpoints
+
+# Gerenciar traduções
+@whyll-agents-front:i18n-manager Add translations for notifications feature
+
+# Criar layout
+@whyll-agents-front:layout-builder Create admin layout with sidebar
+
+# Criar plugin
+@whyll-agents-front:plugin-builder Create client-only plugin for analytics
 ```
 
 **Business & Product (`whyll-agents-biz`):**
