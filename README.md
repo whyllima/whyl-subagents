@@ -11,7 +11,7 @@ Agentes de IA especializados para o projeto WhylLima. Cada agente é focado em u
 | Plugin | Categoria | Descrição |
 |--------|-----------|-----------|
 | **whyll-agents** | Laravel | Builders e fixers: full-stack, model, API, endpoint, test, job, resource, seeder, event, JWT, ACL, audit, quality-checker e fixers. Laravel 12, PHP 8.3, Service-Repository. |
-| **whyll-agents-front** | Front-end | nuxt-project-builder: cria projeto Nuxt 3 com Pinia, Axios, PrimeVue, TypeScript, i18n e ferramentas recomendadas. |
+| **whyll-agents-front** | Front-end | Builders para Nuxt 3: project, page, component, store, composable, API service, i18n, layout, plugin. Stack: Vue 3, Pinia, Axios, PrimeVue, Tailwind, TypeScript, i18n. |
 | **whyll-agents-biz** | Business & Product | product-manager, ux-researcher, business-analyst, content-marketer, project-manager, scrum-master, customer-success, sales-engineer, technical-writer, legal-advisor, wordpress-master. Discovery pipeline: ideia → problema → requisitos → posicionamento. |
 
 ---
@@ -34,6 +34,8 @@ Agentes de IA especializados para o projeto WhylLima. Cada agente é focado em u
 
 # Usar agente Front-end (Nuxt)
 @whyll-agents-front:nuxt-project-builder Create a Nuxt project with Pinia, Axios, PrimeVue, and i18n
+@whyll-agents-front:component-builder Create UserProfileCard in dashboard domain
+@whyll-agents-front:store-builder Create store for managing notifications
 
 # Usar agente Business & Product
 @whyll-agents-biz:product-manager Define product idea and value hypothesis
@@ -81,6 +83,41 @@ Agentes de IA especializados para o projeto WhylLima. Cada agente é focado em u
 | **Total** | **19** | **3.195** | **~8k** |
 
 > **Nota:** Estimativa baseada em ~2.5 tokens/linha de markdown/código.
+
+---
+
+## Agentes disponíveis (whyll-agents-front – Front-end Nuxt 3)
+
+| Agente | Propósito | Linhas | ~Tokens |
+|--------|-----------|--------|---------|
+| `nuxt-project-builder` | Projeto Nuxt 3 do zero | 79 | ~200 |
+| `page-builder` | Páginas com file-based routing | 53 | ~150 |
+| `component-builder` | Componentes Vue SFC | 49 | ~145 |
+| `store-builder` | Pinia stores com SSR safety | 77 | ~170 |
+| `composable-builder` | Composables reutilizáveis | 55 | ~135 |
+| `api-service-builder` | Camada API: Axios → Proxy → Nitro | 87 | ~220 |
+| `i18n-manager` | Locales e traduções | 72 | ~150 |
+| `layout-builder` | Layouts, Sidebar, Menu, dark mode | 55 | ~155 |
+| `plugin-builder` | Plugins Nuxt (client/server) | 52 | ~120 |
+
+### Resumo de Tokens (Front-end)
+
+| Categoria | Agentes | Total Linhas | ~Tokens |
+|-----------|---------|--------------|---------|
+| Builders | 9 | 579 | ~1.4k |
+
+### Convenções (Front-end)
+
+| Convenção | Padrão |
+|-----------|--------|
+| SFC Order | `<script setup>` → `<template>` → `<style scoped>` |
+| PrimeVue | Componentes auto-importados, NUNCA importar. Só utilities: `FilterMatchMode`, `useToast`, `useConfirm` |
+| Error Handling | `.then().catch()` para async. try/catch só para ops síncronas críticas |
+| SSR Safety | `import.meta.client`, `<ClientOnly>`, `typeof window !== 'undefined'` |
+| i18n | `useI18n()` + `t()` para todo texto. Estratégia `no_prefix` |
+| State | Pinia stores para estado complexo; composables para lógica UI |
+| Styling | Tailwind + `:deep()` para PrimeVue overrides |
+| Path Alias | `@/` → `app/`, `#imports` para auto-imports Nuxt |
 
 ---
 
@@ -376,46 +413,51 @@ Issues: try-catch blocks, Log:: calls, direct queries
 
 ## Guia de decisão
 
+### Laravel (whyll-agents)
+
 ```
 Precisa criar algo?
 │
-├── Feature nova do zero
-│   └── full-stack-specialist
-├── Só banco de dados
-│   └── model-builder
-├── Model existe, precisa de API
-│   └── api-layer-builder
-├── Controller existe, só rotas
-│   └── endpoint-builder
-├── API existe, precisa de testes
-│   └── test-builder
-├── Processamento em background
-│   └── job-builder
-├── Transformação JSON
-│   └── resource-builder
-├── Dados de teste/dev
-│   └── seeder-builder
-├── Eventos/real-time
-│   └── event-builder
-├── Autenticação JWT
-│   └── jwt-auth-builder
-├── Sistema de permissões modular
-│   └── acl-builder
-└── Auditoria de models
-    └── audit-builder
+├── Feature nova do zero         → full-stack-specialist
+├── Só banco de dados            → model-builder
+├── Model existe, precisa de API → api-layer-builder
+├── Controller existe, só rotas  → endpoint-builder
+├── API existe, precisa testes   → test-builder
+├── Processamento em background  → job-builder
+├── Transformação JSON           → resource-builder
+├── Dados de teste/dev           → seeder-builder
+├── Eventos/real-time            → event-builder
+├── Autenticação JWT             → jwt-auth-builder
+├── Sistema de permissões        → acl-builder
+└── Auditoria de models          → audit-builder
 
 Precisa auditar/corrigir?
 │
-├── Auditar feature ou arquivos
-│   └── quality-checker (gera prompts para os fixers)
-└── Corrigir componente específico
-    └── controller-fixer | service-fixer | repository-fixer
-        | model-fixer | formrequest-fixer | resource-fixer
+├── Auditar feature              → quality-checker (gera prompts)
+└── Corrigir componente          → controller-fixer | service-fixer
+                                   repository-fixer | model-fixer
+                                   formrequest-fixer | resource-fixer
+```
+
+### Front-end (whyll-agents-front)
+
+```
+Projeto novo do zero             → nuxt-project-builder
+Nova página/rota                 → page-builder
+Novo componente visual           → component-builder
+Gerenciamento de estado          → store-builder
+Lógica reutilizável/UI           → composable-builder
+Integração com API externa       → api-service-builder
+Traduções/idiomas                → i18n-manager
+Layout/sidebar/menu/dark mode    → layout-builder
+Plugin Vue/Nuxt                  → plugin-builder
 ```
 
 ---
 
 ## Stack do projeto
+
+### Back-end (Laravel)
 
 - **PHP:** 8.3.27
 - **Laravel:** v12
@@ -426,6 +468,17 @@ Precisa auditar/corrigir?
 - **Code Style:** Pint v1
 - **Testing:** PHPUnit v11
 - **Auditing:** owen-it/laravel-auditing
+
+### Front-end (Nuxt)
+
+- **Nuxt:** 4.2.0 (SSR habilitado)
+- **Vue:** 3.4.34
+- **State:** Pinia 2.1.7
+- **HTTP:** Axios 1.13.2
+- **UI:** PrimeVue 4.3.1
+- **CSS:** Tailwind CSS 3.4.6
+- **i18n:** @nuxtjs/i18n 10.2.0
+- **Language:** TypeScript 5.3.3
 
 ---
 
@@ -479,6 +532,18 @@ whyl-subagents/
     │   ├── model-fixer.md
     │   ├── formrequest-fixer.md
     │   └── resource-fixer.md
+    ├── 02-front-end/
+    │   ├── .claude-plugin/
+    │   │   └── plugin.json
+    │   ├── nuxt-project-builder.md
+    │   ├── page-builder.md
+    │   ├── component-builder.md
+    │   ├── store-builder.md
+    │   ├── composable-builder.md
+    │   ├── api-service-builder.md
+    │   ├── i18n-manager.md
+    │   ├── layout-builder.md
+    │   └── plugin-builder.md
     └── 03-business-product/
         ├── .claude-plugin/
         │   └── plugin.json
