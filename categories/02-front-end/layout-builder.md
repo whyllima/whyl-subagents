@@ -8,72 +8,44 @@ tools: Read, Write, Edit, Bash, Glob, Grep
 
 Creates: Nuxt layouts (`app/layouts/`) and layout components (`app/components/layout/`).
 
-## Layout Structure
-
-```vue
-<!-- layouts/default.vue -->
-<template>
-  <div class="layout-wrapper">
-    <LayoutAppTopbar />
-    <div class="layout-sidebar">
-      <LayoutAppSidebar />
-    </div>
-    <div class="layout-main-container">
-      <div class="layout-main">
-        <slot />
-      </div>
-      <LayoutAppFooter />
-    </div>
-  </div>
-</template>
-```
-
 ## Layout Components
 
-| Component | Path | Purpose |
-|---|---|---|
-| AppTopbar | `layout/AppTopbar.vue` | Top bar with menu toggle, dark mode, config |
-| AppSidebar | `layout/AppSidebar.vue` | Sidebar container |
-| AppMenu | `layout/AppMenu.vue` | Navigation menu items (static array) |
-| AppMenuItem | `layout/AppMenuItem.vue` | Single menu item (recursive for submenus) |
-| AppFooter | `layout/AppFooter.vue` | Footer |
-| AppConfigurator | `layout/AppConfigurator.vue` | Theme config panel |
+| Component | Purpose |
+|---|---|
+| `layout/AppTopbar.vue` | Top bar: menu toggle, dark mode, config |
+| `layout/AppSidebar.vue` | Sidebar container |
+| `layout/AppMenu.vue` | Navigation menu items (static array) |
+| `layout/AppMenuItem.vue` | Single menu item (recursive for submenus) |
+| `layout/AppFooter.vue` | Footer |
+| `layout/AppConfigurator.vue` | Theme config panel |
 
 ## Menu Data Pattern
 
 ```typescript
 const menuData = [
-    {
-        label: 'Section',
-        items: [
-            { label: 'Page', icon: 'pi pi-fw pi-home', to: '/' },
-            { label: 'Group', icon: 'pi pi-fw pi-book',
-              items: [
-                  { label: 'Sub Page', icon: 'pi pi-fw pi-list', to: '/sub-page' },
-              ]
-            },
-        ]
-    },
+    { label: 'Section', items: [
+        { label: 'Page', icon: 'pi pi-fw pi-home', to: '/' },
+        { label: 'Group', icon: 'pi pi-fw pi-book', items: [
+            { label: 'Sub', icon: 'pi pi-fw pi-list', to: '/sub' },
+        ]},
+    ]},
 ];
 ```
 
 ## Dark Mode
 
-- CSS class `.app-dark` on `<html>`
-- Tailwind: `darkMode: ['selector', '[class*="app-dark"]']`
-- PrimeVue: `darkModeSelector: '.app-dark'`
+- Class `.app-dark` on `<html>` — Tailwind: `darkMode: ['selector', '[class*="app-dark"]']`
 - Toggle via `useLayoutStore().toggleDarkMode()` with View Transitions API fallback
+- SSR guard: `import.meta.client` required
 
 ## Rules
 
-- Layout components in `app/components/layout/`
 - Use Pinia `useLayoutStore` for layout state (not composable)
-- PrimeVue icons: `pi pi-fw pi-{name}`
-- Menu items: `to` for routes, nested `items` for submenus
-- SSR guard for dark mode toggle: `import.meta.client`
+- Icons: `pi pi-fw pi-{name}`
+- Menu: `to` for routes, nested `items` for submenus
 - Responsive: desktop static menu vs mobile overlay
-- **NO PrimeVue component imports** — all auto-imported. Only import utilities (`FilterMatchMode`, `useToast`, `useConfirm`)
-- **Error handling**: use `.then().catch()` for async calls (NOT try/catch with await). Use try/catch only for synchronous critical operations
+- **NO PrimeVue component imports** — all auto-imported. Only import utilities
+- **Error handling**: `.then().catch()` for async calls
 
 ## Workflow
 

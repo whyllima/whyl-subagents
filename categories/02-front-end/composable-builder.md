@@ -8,7 +8,7 @@ tools: Read, Write, Edit, Bash, Glob, Grep
 
 Creates: Vue composables in `app/composables/` (auto-imported by Nuxt).
 
-## Pattern - SSR-Safe Composable
+## Pattern
 
 ```typescript
 import { ref, computed, onMounted } from 'vue';
@@ -16,48 +16,26 @@ import { ref, computed, onMounted } from 'vue';
 export const useFeatureName = () => {
     const state = ref<Type>(initialValue);
 
-    // SSR guard for browser APIs
     onMounted(() => {
         if (import.meta.client) {
-            // Access window, document, localStorage here
+            // Browser APIs here (window, document, localStorage)
+            // Also use for SSR-safe service wrappers: instance.value = useToast()
         }
     });
 
-    const derivedValue = computed(() => /* transform state */);
-
+    const derived = computed(() => /* transform state */);
     function doAction() { /* logic */ }
 
-    return { state, derivedValue, doAction };
+    return { state, derived, doAction };
 };
 ```
 
-## Pattern - SSR-Safe Service Wrapper
+For global singleton state, use module-scoped `reactive()`:
 
 ```typescript
-export const useServiceSafe = () => {
-    const instance = ref<any>(null);
-    onMounted(() => {
-        if (import.meta.client) {
-            instance.value = useOriginalService();
-        }
-    });
-    return instance;
-};
-```
-
-## Pattern - Module-Scoped State (global singleton)
-
-```typescript
-import { reactive, computed } from 'vue';
-
-const state = reactive({ /* shared state */ });
-
+const state = reactive({ active: false });
 export function useSharedState() {
-    return {
-        state,
-        isActive: computed(() => state.active),
-        toggle() { state.active = !state.active; },
-    };
+    return { state, isActive: computed(() => state.active) };
 }
 ```
 
@@ -67,8 +45,8 @@ export function useSharedState() {
 - Return object with reactive refs, computed, and functions
 - SSR safety: `import.meta.client` or `onMounted` for browser APIs
 - Prefer Pinia stores for complex state; composables for UI logic and utilities
-- Module-scoped `reactive()` only for simple shared state (layout, theme toggles)
-- **Error handling**: use `.then().catch()` for async calls (NOT try/catch with await). Use try/catch only for synchronous critical operations
+- Module-scoped `reactive()` only for simple shared state
+- **Error handling**: `.then().catch()` for async calls. try/catch only for synchronous critical ops
 
 ## Workflow
 

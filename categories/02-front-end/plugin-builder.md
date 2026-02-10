@@ -12,63 +12,38 @@ Creates: Nuxt plugins in `app/plugins/`.
 
 | Suffix | Runs on |
 |---|---|
-| `plugin.ts` | Server + Client (universal) |
-| `plugin.client.ts` | Client only |
-| `plugin.server.ts` | Server only |
+| `name.ts` | Server + Client (universal) |
+| `name.client.ts` | Client only |
+| `name.server.ts` | Server only |
 
-## Pattern - Universal Plugin
+## Pattern
 
 ```typescript
 export default defineNuxtPlugin({
     name: 'plugin-name',
-    enforce: 'pre',    // 'pre' runs before others, 'post' runs after
+    enforce: 'pre',    // 'pre' | undefined | 'post'
     setup(nuxtApp) {
         nuxtApp.vueApp.use(SomePlugin, options);
+        // Or provide helpers:
+        // return { provide: { helperName: (arg: string) => { ... } } }
     },
-});
-```
-
-## Pattern - Client-Only Plugin
-
-```typescript
-// plugins/services.client.ts
-export default defineNuxtPlugin({
-    name: 'services',
-    enforce: 'post',
-    setup(nuxtApp) {
-        nuxtApp.vueApp.use(ToastService);
-        nuxtApp.vueApp.use(ConfirmationService);
-    },
-});
-```
-
-## Pattern - Provide Helper
-
-```typescript
-export default defineNuxtPlugin((nuxtApp) => {
-    return {
-        provide: {
-            helperName: (arg: string) => { /* logic */ },
-        },
-    };
 });
 ```
 
 ## Enforce Order
 
 ```
-1. enforce: 'pre'   → Framework setup (PrimeVue theme, core plugins)
+1. enforce: 'pre'   → Framework setup (PrimeVue theme)
 2. (default)        → Normal plugins
-3. enforce: 'post'  → Services that depend on framework (Toast, Confirmation)
+3. enforce: 'post'  → Services needing framework (Toast, Confirmation) — use .client.ts
 ```
 
 ## Rules
 
 - PrimeVue core: `primevue.ts` with `enforce: 'pre'` (universal)
 - PrimeVue services: `primevue-services.client.ts` with `enforce: 'post'` (client-only)
-- Client-only plugins: suffix `.client.ts` — for browser-only services
+- No `import.meta.client` needed inside `.client.ts` files
 - Provided helpers accessible via `useNuxtApp().$helperName`
-- No `import.meta.client` needed inside `.client.ts` files (already client-only)
 
 ## Workflow
 

@@ -28,28 +28,18 @@ Creates: Vue 3 SFC components in `app/components/` organized by feature/domain.
 // 7. Functions/handlers
 ```
 
-## PrimeVue Auto-Import
-
-**NEVER import PrimeVue components** — they are globally registered via `unplugin-vue-components` + `PrimeVueResolver`. Use directly in template: `<DataTable>`, `<Button>`, `<Card>`, `<Toast>`, `<Column>`, etc.
-
-**Only these PrimeVue utilities need explicit import:**
-- `import { FilterMatchMode } from '@primevue/core/api'`
-- `import { useToast } from 'primevue/usetoast'`
-- Other non-component utilities (e.g. `useConfirm`, `usePrimeVue`)
-
 ## Rules
 
-- **PascalCase** file names: `VerbListTable.vue`, `StatsWidget.vue`
-- **Suffixes**: `*Widget.vue`, `*Panel.vue`, `*Table.vue`, `*Card.vue`, `*Form.vue`
+- **PascalCase** file names with descriptive suffixes: `*Widget.vue`, `*Panel.vue`, `*Table.vue`, `*Card.vue`, `*Form.vue`
 - **Feature folders**: `components/dashboard/`, `components/verb/`, `components/layout/`
-- Auto-import resolution: `components/verb/VerbListTable.vue` → `<VerbVerbListTable />` or `<VerbListTable />`
-- **NO PrimeVue component imports** — all auto-imported. Only import utilities (`FilterMatchMode`, `useToast`, `useConfirm`)
+- Auto-import: `components/verb/VerbListTable.vue` → `<VerbListTable />`
+- **NO PrimeVue component imports** — all auto-imported via `PrimeVueResolver`. Only import utilities: `FilterMatchMode` from `@primevue/core/api`, `useToast` from `primevue/usetoast`, `useConfirm`
 - Props: `defineProps<{ verb: Verb | null }>()`
 - Emits: `defineEmits<{ close: []; practice: [mode: 'step' | 'flashcard'] }>()`
 - Type imports: `import type { Verb } from '@/types/verb'`
-- SSR safety: `import.meta.client` guard, `<ClientOnly>` wrapper, `typeof window !== 'undefined'`
-- **Error handling**: use `.then().catch()` for async calls (NOT try/catch with await). Use try/catch only for synchronous critical operations
-- Styling: Tailwind classes + `:deep()` for PrimeVue overrides in `<style scoped>`
+- SSR safety: `import.meta.client` guard, `<ClientOnly>` wrapper
+- **Error handling**: `.then().catch()` for async calls. try/catch only for synchronous critical ops
+- Styling: Tailwind + `:deep()` for PrimeVue overrides in `<style scoped>`
 
 ## Workflow
 
