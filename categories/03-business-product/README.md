@@ -1,133 +1,194 @@
-# Business & Product Subagents
+# Business & Product Agents (`whyll-agents-biz`)
 
-Business & Product subagents bridge the gap between technology and business value. These specialists understand both technical implementation and business strategy, helping teams build products that users love and businesses thrive on. From product strategy to customer success, from business analysis to technical writing, they ensure technology serves real business needs and delivers measurable value.
+Agentes especializados em produto, UX, negocios, conteudo, gestao de projetos e mais. Inclui o **Discovery Pipeline** para validacao de ideias.
 
-## When to Use Business & Product Subagents
+**Prefixo:** `@whyll-agents-biz:<agente>`
 
-Use these subagents when you need to:
-- **Define product strategy** and roadmaps
-- **Analyze business requirements** and translate to technical specs
-- **Conduct user research** to validate ideas
-- **Create content** that drives engagement
-- **Manage customer relationships** and success
-- **Ensure legal compliance** in technical decisions
-- **Manage projects** effectively with Agile methods
-- **Bridge technical and business** communication
+---
 
-## Available Subagents
+## Discovery Pipeline
 
-### [**business-analyst**](business-analyst.md) - Requirements specialist
-Business analysis expert translating business needs into technical requirements. Masters stakeholder communication, process analysis, and solution design. Ensures technology solves real business problems.
+Cadeia de validacao de ideias de produto:
 
-**Use when:** Gathering requirements, analyzing business processes, defining specifications, creating user stories, or bridging business-technical communication.
+```
+product-manager -> ux-researcher -> business-analyst -> content-marketer
+   (ideia)       (problema real?)    (requisitos/viab.)   (posicionamento)
+```
 
-### [**content-marketer**](content-marketer.md) - Content marketing specialist
-Content expert creating compelling technical and marketing content. Masters SEO, content strategy, and audience engagement. Drives growth through strategic content creation.
+---
 
-**Use when:** Creating blog posts, developing content strategy, writing marketing copy, optimizing for SEO, or building content calendars.
+## Agentes
 
-### [**customer-success-manager**](customer-success-manager.md) - Customer success expert
-Customer success specialist ensuring users achieve their goals. Expert in onboarding, retention, and customer advocacy. Transforms users into champions through proactive support.
+### `product-manager`
 
-**Use when:** Designing onboarding flows, improving user retention, gathering customer feedback, building success metrics, or creating customer programs.
+Especialista em estrategia de produto, priorizacao de features e decisoes data-driven. Gera e valida ideias de produto, define problem statements e value hypotheses. Usa frameworks como RICE, Jobs to be Done, Kano Model e OKRs. E o primeiro agente no Discovery Pipeline.
 
-### [**legal-advisor**](legal-advisor.md) - Legal and compliance specialist
-Legal expert navigating technology law and compliance. Masters privacy regulations, intellectual property, and contract negotiations. Protects businesses while enabling innovation.
+**Exemplos:**
 
-**Use when:** Reviewing terms of service, ensuring data privacy compliance, understanding licensing, managing intellectual property, or assessing legal risks.
+```text
+@whyll-agents-biz:product-manager Define product idea and value hypothesis for a "habit tracker" app
 
-### [**product-manager**](product-manager.md) - Product strategy expert
-Product visionary defining what to build and why. Expert in market analysis, user needs, and product strategy. Drives product success from conception to market leadership.
+@whyll-agents-biz:product-manager Create a PRD for a new notifications system with RICE prioritization
 
-**Use when:** Defining product vision, prioritizing features, conducting market research, creating roadmaps, or making product decisions.
+@whyll-agents-biz:product-manager Analyze competitor landscape and define positioning for our SaaS dashboard
+```
 
-### [**project-manager**](project-manager.md) - Project management specialist
-Project management expert ensuring successful delivery. Masters Agile methodologies, resource planning, and stakeholder management. Keeps projects on time, on budget, and on target.
+---
 
-**Use when:** Planning projects, managing timelines, coordinating teams, tracking progress, or implementing project methodologies.
+### `ux-researcher`
 
-### [**sales-engineer**](sales-engineer.md) - Technical sales expert
-Sales engineering specialist bridging technical complexity and customer needs. Expert in demos, POCs, and technical objections. Helps customers understand and adopt technical solutions.
+Especialista em pesquisa de UX, testes de usabilidade e insights baseados em dados. Valida se a dor do usuario e real atraves de entrevistas, surveys, analytics e testes A/B. Segundo agente no Discovery Pipeline, consome o problem statement do product-manager e produz relatorio de validacao.
 
-**Use when:** Creating technical demos, handling sales objections, designing POCs, supporting sales teams, or explaining technical value.
+**Exemplos:**
 
-### [**scrum-master**](scrum-master.md) - Agile methodology expert
-Agile facilitator ensuring teams work effectively. Masters Scrum framework, team dynamics, and continuous improvement. Removes impediments and fosters high-performing teams.
+```text
+@whyll-agents-biz:ux-researcher Validate if users really struggle with our onboarding flow
 
-**Use when:** Implementing Scrum, facilitating ceremonies, improving team processes, removing blockers, or coaching agile practices.
+@whyll-agents-biz:ux-researcher Design a usability test plan for the new checkout experience
 
-### [**technical-writer**](technical-writer.md) - Technical documentation specialist
-Documentation expert making complex technical concepts accessible. Masters various documentation types, tools, and user-focused writing. Creates documentation users actually read.
+@whyll-agents-biz:ux-researcher Create user personas and journey map for the e-commerce platform
+```
 
-**Use when:** Writing user guides, creating API documentation, developing tutorials, improving documentation, or building knowledge bases.
+---
 
-### [**ux-researcher**](ux-researcher.md) - User research expert
-User research specialist uncovering user needs and behaviors. Expert in research methodologies, usability testing, and insight synthesis. Ensures products are built on real user understanding.
+### `business-analyst`
 
-**Use when:** Conducting user interviews, running usability tests, analyzing user behavior, creating personas, or validating product decisions.
+Especialista em levantamento de requisitos, melhoria de processos e analise de viabilidade. Traduz ideias validadas em requisitos, especificacoes e avaliacao de viabilidade tecnica/comercial. Terceiro agente no Discovery Pipeline.
 
-## Quick Selection Guide
+**Exemplos:**
 
-| If you need to... | Use this subagent |
-|-------------------|-------------------|
-| Define requirements | **business-analyst** |
-| Create content | **content-marketer** |
-| Retain customers | **customer-success-manager** |
-| Handle legal matters | **legal-advisor** |
-| Shape product vision | **product-manager** |
-| Manage projects | **project-manager** |
-| Support sales | **sales-engineer** |
-| Run Scrum teams | **scrum-master** |
-| Write documentation | **technical-writer** |
-| Research users | **ux-researcher** |
+```text
+@whyll-agents-biz:business-analyst Translate the habit tracker idea into requirements and viability assessment
 
-## Discovery Pipeline (ideia → problema → requisitos → posicionamento)
+@whyll-agents-biz:business-analyst Map the current order fulfillment process and identify bottlenecks
 
-Fluxo de descoberta entre quatro agentes: **product-manager** (o quê e por quê) → **ux-researcher** (problema é real?) → **business-analyst** (requisitos e viabilidade) → **content-marketer** (posicionamento e narrativa). Detalhes em [DISCOVERY-PIPELINE.md](DISCOVERY-PIPELINE.md).
+@whyll-agents-biz:business-analyst Create a cost-benefit analysis for migrating from monolith to microservices
+```
 
-## Common Business Patterns
+---
 
-**Product Development:**
-- **product-manager** for vision
-- **ux-researcher** for user insights
-- **business-analyst** for requirements
-- **project-manager** for execution
+### `content-marketer`
 
-**Go-to-Market:**
-- **content-marketer** for content
-- **sales-engineer** for demos
-- **technical-writer** for docs
-- **customer-success-manager** for retention
+Especialista em estrategia de conteudo, SEO, marketing multicanal e otimizacao de conversao. Define posicionamento, narrativa e messaging hierarchy a partir da value proposition validada. Quarto agente no Discovery Pipeline.
 
-**Agile Teams:**
-- **scrum-master** for process
-- **product-manager** for priorities
-- **business-analyst** for stories
-- **project-manager** for tracking
+**Exemplos:**
 
-**Customer Focus:**
-- **ux-researcher** for understanding
-- **customer-success-manager** for satisfaction
-- **technical-writer** for self-service
-- **sales-engineer** for adoption
+```text
+@whyll-agents-biz:content-marketer Define positioning statement and messaging for the new SaaS product launch
 
-## Getting Started
+@whyll-agents-biz:content-marketer Create a content strategy with SEO pillars for our developer tools blog
 
-1. **Identify business objectives** clearly
-2. **Choose specialists** that align with goals
-3. **Provide business context** and constraints
-4. **Foster collaboration** between specialists
-5. **Measure business impact** continuously
+@whyll-agents-biz:content-marketer Plan an email nurture sequence for trial users with 5 touchpoints
+```
 
-## Best Practices
+---
 
-- **User-centric approach:** Always consider the end user
-- **Data-driven decisions:** Measure and validate
-- **Clear communication:** Bridge technical and business
-- **Iterative improvement:** Small steps, big impact
-- **Stakeholder alignment:** Keep everyone informed
-- **Documentation matters:** Knowledge should be accessible
-- **Legal compliance:** Consider regulations early
-- **Business value focus:** Technology serves business goals
+### `project-manager`
 
-Choose your business & product specialist and build products that matter!
+Especialista em planejamento de projetos, gestao de recursos, mitigacao de riscos e comunicacao com stakeholders. Domina Waterfall, Agile, PRINCE2 e abordagens hibridas. Foca em entregar projetos no prazo, dentro do orcamento e com qualidade.
+
+**Exemplos:**
+
+```text
+@whyll-agents-biz:project-manager Create a project plan with WBS, timeline and risk register for the platform migration
+
+@whyll-agents-biz:project-manager Plan resource allocation for 3 parallel development streams over Q2
+
+@whyll-agents-biz:project-manager Build a stakeholder communication matrix and status reporting cadence
+```
+
+---
+
+### `scrum-master`
+
+Especialista em facilitacao agil, transformacao Scrum e melhoria continua. Facilita cerimonias (planning, standup, review, retro), remove impedimentos, monitora velocity e promove equipes auto-organizadas. Conhece SAFe, LeSS e Spotify Model para scaling.
+
+**Exemplos:**
+
+```text
+@whyll-agents-biz:scrum-master Facilitate sprint planning for the next 2-week sprint with capacity analysis
+
+@whyll-agents-biz:scrum-master Design a retrospective format to address team communication issues
+
+@whyll-agents-biz:scrum-master Assess agile maturity of the team and propose improvement plan
+```
+
+---
+
+### `customer-success-manager`
+
+Especialista em retencao de clientes, onboarding, adocao de produto e crescimento de receita. Monitora health scores, previne churn, identifica oportunidades de upsell e constroi programas de advocacy. Foca em maximizar lifetime value e satisfacao do cliente.
+
+**Exemplos:**
+
+```text
+@whyll-agents-biz:customer-success-manager Create an onboarding playbook for enterprise customers with 90-day milestones
+
+@whyll-agents-biz:customer-success-manager Build a churn prevention strategy with early warning indicators and intervention playbooks
+
+@whyll-agents-biz:customer-success-manager Design a quarterly business review template with ROI metrics and expansion opportunities
+```
+
+---
+
+### `sales-engineer`
+
+Especialista em pre-vendas tecnicas, POCs e arquitetura de solucoes. Traduz tecnologia complexa em valor de negocio para prospects. Conduz demos, responde RFPs, resolve objecoes tecnicas e acelera o ciclo de vendas.
+
+**Exemplos:**
+
+```text
+@whyll-agents-biz:sales-engineer Prepare a technical demo script for our API platform targeting enterprise prospects
+
+@whyll-agents-biz:sales-engineer Create a POC plan with success criteria for a Fortune 500 integration
+
+@whyll-agents-biz:sales-engineer Build a competitive comparison matrix against top 3 competitors with technical differentiators
+```
+
+---
+
+### `technical-writer`
+
+Especialista em documentacao tecnica clara e acessivel. Cria API references, guias de usuario, tutoriais e troubleshooting guides. Foca em information architecture, progressive disclosure e exemplos praticos que reduzem tickets de suporte.
+
+**Exemplos:**
+
+```text
+@whyll-agents-biz:technical-writer Create API documentation for the authentication endpoints with request/response examples
+
+@whyll-agents-biz:technical-writer Write a getting started guide for new developers integrating our SDK
+
+@whyll-agents-biz:technical-writer Create a troubleshooting guide for common deployment issues with step-by-step solutions
+```
+
+---
+
+### `legal-advisor`
+
+Especialista em direito tecnologico, compliance e mitigacao de riscos. Cobre contratos, propriedade intelectual, privacidade de dados (GDPR/CCPA), termos de servico e conformidade regulatoria. Fornece orientacao juridica pratica que viabiliza inovacao dentro de limites legais seguros.
+
+**Exemplos:**
+
+```text
+@whyll-agents-biz:legal-advisor Draft a privacy policy compliant with GDPR and CCPA for our SaaS platform
+
+@whyll-agents-biz:legal-advisor Review the SLA contract template and identify liability risks
+
+@whyll-agents-biz:legal-advisor Create a data processing agreement (DPA) for our European customers
+```
+
+---
+
+### `wordpress-master`
+
+Arquiteto WordPress de elite para desenvolvimento full-stack, otimizacao de performance e solucoes enterprise. Domina temas/plugins customizados, Gutenberg/FSE, multisite, WooCommerce, headless WordPress com REST/GraphQL, seguranca e scaling para milhoes de visitantes.
+
+**Exemplos:**
+
+```text
+@whyll-agents-biz:wordpress-master Optimize site performance to achieve < 1.5s load time and pass Core Web Vitals
+
+@whyll-agents-biz:wordpress-master Create a custom Gutenberg block for a pricing table with dynamic data from ACF
+
+@whyll-agents-biz:wordpress-master Setup headless WordPress with REST API and Next.js frontend including JWT authentication
+```
