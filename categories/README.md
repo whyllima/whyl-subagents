@@ -51,12 +51,15 @@ Especialistas em produto, UX, negócios e conteúdo. Inclui o **Discovery Pipeli
 | `i18n-manager` | Locales e traduções | 72 | ~150 |
 | `layout-builder` | Layouts, Sidebar, Menu, dark mode | 55 | ~155 |
 | `plugin-builder` | Plugins Nuxt (client/server) | 52 | ~120 |
+| `quality-checker` | Audita código e gera prompts para builders | 339 | ~850 |
 
 ### Resumo de Tokens (02-front-end)
 
 | Categoria | Total Linhas | ~Tokens |
 |-----------|--------------|---------|
 | Builders | 579 | ~1.4k |
+| Quality | 339 | ~850 |
+| **Total** | **918** | **~2.3k** |
 
 ---
 
@@ -86,6 +89,9 @@ Especialistas em produto, UX, negócios e conteúdo. Inclui o **Discovery Pipeli
 - Traduções/idiomas → `i18n-manager`
 - Layout/sidebar/menu/dark mode → `layout-builder`
 - Plugin Vue/Nuxt → `plugin-builder`
+
+**Auditar e corrigir**
+- Auditar projeto ou feature → `quality-checker` (gera prompts para os builders)
 
 ---
 
@@ -249,6 +255,14 @@ Issues: try-catch blocks, Log:: calls, direct queries
 
 # Criar plugin
 @whyll-agents-front:plugin-builder Create client-only plugin for analytics
+
+# Auditar e obter prompts de correção
+@whyll-agents-front:quality-checker Audit the entire Nuxt project
+
+# Corrigir um componente (usar prompt gerado pelo quality-checker)
+@whyll-agents-front:component-builder Fix ProductCard
+File: app/components/productCard.vue
+Issues: camelCase filename, direct PrimeVue import
 ```
 
 **Business & Product (`whyll-agents-biz`):**
