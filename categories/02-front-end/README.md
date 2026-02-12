@@ -165,3 +165,21 @@ Cria plugins Nuxt em `app/plugins/` com controle de execucao (universal, client-
 
 @whyll-agents-front:plugin-builder Create a plugin that provides a global $formatDate helper
 ```
+
+---
+
+## Qualidade
+
+### `quality-checker`
+
+Audita projetos Nuxt 3 contra as convencoes dos builders. Escaneia 9 areas: Pages, Components, Stores, Composables, API Layer, i18n, Layouts, Plugins e Config. Usa grep/glob para detectar violacoes e gera relatorio com lista de problemas por area. Verifica imports PrimeVue indevidos, SSR safety, tipagem, i18n, naming conventions e seguranca de tokens.
+
+**Exemplos:**
+
+```text
+@whyll-agents-front:quality-checker Audit the entire Nuxt project for convention violations
+
+@whyll-agents-front:quality-checker Scan all pages and components for hardcoded strings that should use i18n
+
+@whyll-agents-front:quality-checker Check stores and composables for SSR safety issues and async error handling patterns
+```
