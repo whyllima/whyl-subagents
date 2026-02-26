@@ -10,7 +10,7 @@ Adds required traits, UUID configuration, and fixes relationships.
 
 ## Rules
 
-- **Add traits:** HasFactory, HasUuids, SoftDeletes, AutoIncrementId, Auditable
+- **Add traits:** HasFactory, HasUuids, SoftDeletes (do NOT use AutoIncrementId — id is MySQL AUTO_INCREMENT)
 - **Add config:** $primaryKey='uuid', $incrementing=false, $keyType='string'
 - **Add:** uniqueIds() method
 - **Fix FKs:** _id → _uuid
@@ -21,7 +21,7 @@ Adds required traits, UUID configuration, and fixes relationships.
 ```php
 class {Entity} extends Model
 {
-    use HasFactory, HasUuids, SoftDeletes, AutoIncrementId, Auditable;
+    use HasFactory, HasUuids, SoftDeletes;
 
     protected $primaryKey = 'uuid';
     public $incrementing = false;

@@ -23,7 +23,7 @@ ls app/Models/Module.php 2>/dev/null
 grep -l "try {" app/Http/Controllers/           # Controllers with logic
 grep -l "DB::table" app/Repositories/           # Repos using DB facade
 grep -l "return \$" app/Services/ | xargs grep -L "Resource"  # Services not returning Resource
-grep -L "AutoIncrementId" app/Models/*.php      # Models missing traits
+grep -L "HasUuids" app/Models/*.php              # Models missing UUID traits
 grep -l "parent::toArray" app/Http/Resources/   # Resources not explicit
 grep -L "isMethod('put')" app/Http/Requests/    # FormRequests without update handling
 
@@ -109,7 +109,7 @@ Total: X components need fixes
 | Controller (ACL) | model_permission middleware for each action | - |
 | Service | extends Service, Repository, try-catch, Resource returns | DB:: facade |
 | Repository | extends Repository, Model::query(), whereHas | DB:: facade |
-| Model | 5 traits, UUID PK config, uniqueIds(), _uuid FKs | _id FKs |
+| Model | HasFactory, HasUuids, SoftDeletes, UUID PK config, uniqueIds(), _uuid FKs | AutoIncrementId trait, _id FKs |
 | FormRequest | authorize(), POST+PUT handling, array syntax | pipe syntax |
 | Resource | @mixin, explicit fields, toISOString, whenLoaded | parent::toArray, id field |
 

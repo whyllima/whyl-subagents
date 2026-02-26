@@ -35,22 +35,31 @@ Response always via Resource
 
 ### Migration
 
+MySQL does not allow AUTO_INCREMENT on a non-key column when another column is the PRIMARY KEY.
+Use `DB::statement()` to add `id` after table creation.
+
 ```php
+use Illuminate\Support\Facades\DB;
+
 Schema::create('{entities}', function (Blueprint $table) {
     $table->uuid('uuid')->primary();
-    $table->unsignedBigInteger('id')->unique();
+    // DO NOT add 'id' here — added via DB::statement below
     // columns...
     $table->timestamps();
     $table->softDeletes();
 });
+
+DB::statement('ALTER TABLE {entities} ADD COLUMN id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT UNIQUE AFTER uuid');
 ```
 
 ### Model
 
+Do NOT use `AutoIncrementId` trait — `id` is handled by MySQL AUTO_INCREMENT.
+
 ```php
 class {Entity} extends Model
 {
-    use HasFactory, HasUuids, SoftDeletes, AutoIncrementId, Auditable;
+    use HasFactory, HasUuids, SoftDeletes;
     protected $primaryKey = 'uuid';
     public $incrementing = false;
     protected $keyType = 'string';

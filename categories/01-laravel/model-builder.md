@@ -12,10 +12,15 @@ Creates: Migration + Model (no API layer)
 
 ### Migration
 
+MySQL does not allow AUTO_INCREMENT on a non-key column when another column is the PRIMARY KEY.
+Use `DB::statement()` to add `id` as `BIGINT UNSIGNED AUTO_INCREMENT UNIQUE` after creating the table.
+
 ```php
+use Illuminate\Support\Facades\DB;
+
 Schema::create('{entities}', function (Blueprint $table) {
     $table->uuid('uuid')->primary();
-    $table->unsignedBigInteger('id')->unique();
+    // DO NOT add 'id' here — added via DB::statement below
     $table->string('name');
     // columns...
     $table->foreignUuid('category_uuid')->nullable()->constrained('categories', 'uuid');
@@ -23,9 +28,14 @@ Schema::create('{entities}', function (Blueprint $table) {
     $table->softDeletes();
     $table->index(['status', 'created_at']);
 });
+
+// Add auto-increment id as UNIQUE key (MySQL requires AUTO_INCREMENT to be a key)
+DB::statement('ALTER TABLE {entities} ADD COLUMN id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT UNIQUE AFTER uuid');
 ```
 
 ### Pivot Table
+
+Pivot tables do NOT need the `id` column.
 
 ```php
 Schema::create('{entity_relation}', function (Blueprint $table) {
@@ -38,10 +48,12 @@ Schema::create('{entity_relation}', function (Blueprint $table) {
 
 ### Model
 
+Do NOT use the `AutoIncrementId` trait — `id` is handled by MySQL AUTO_INCREMENT.
+
 ```php
 class {Entity} extends Model
 {
-    use HasFactory, HasUuids, SoftDeletes, AutoIncrementId, Auditable;
+    use HasFactory, HasUuids, SoftDeletes;
 
     protected $primaryKey = 'uuid';
     public $incrementing = false;
@@ -58,6 +70,6 @@ class {Entity} extends Model
 
 ## Workflow
 
-1. Create migration
-2. Create model with traits and relationships
+1. Create migration (uuid PK + DB::statement for auto-increment id)
+2. Create model with traits and relationships (no AutoIncrementId)
 3. Run `vendor/bin/pint --dirty`

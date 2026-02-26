@@ -37,7 +37,7 @@ Cria uma feature completa de ponta a ponta: Migration, Model, Repository, Servic
 
 ### `model-builder`
 
-Cria Migration e Model com UUID como primary key, traits obrigatorias (HasFactory, HasUuids, SoftDeletes, AutoIncrementId, Auditable), e relacionamentos com chaves explicitas. Tambem cria tabelas pivot quando necessario.
+Cria Migration e Model com UUID como primary key, traits obrigatorias (HasFactory, HasUuids, SoftDeletes), id via DB::statement (AUTO_INCREMENT UNIQUE), e relacionamentos com chaves explicitas. Tambem cria tabelas pivot quando necessario.
 
 **Exemplos:**
 
@@ -300,7 +300,7 @@ Adiciona traits obrigatorias, configuracao UUID, `uniqueIds()`, corrige FKs de `
 **Exemplos:**
 
 ```text
-@whyll-agents:model-fixer Fix Product model - add missing HasUuids and AutoIncrementId traits
+@whyll-agents:model-fixer Fix Product model - add missing HasUuids and SoftDeletes traits
 
 @whyll-agents:model-fixer Fix Order model - change category_id to category_uuid and fix relationship keys
 
