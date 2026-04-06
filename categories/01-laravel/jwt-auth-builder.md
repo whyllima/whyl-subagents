@@ -8,6 +8,15 @@ tools: Read, Write, Edit, Bash, Glob, Grep
 
 Configures complete JWT authentication with single-session enforcement via token cache.
 
+## CRITICAL RULES — Read these FIRST
+
+1. **ALWAYS use shell_exec to run `composer require` commands FIRST** — before creating any files
+2. **ALWAYS use file_read to READ existing files before modifying them** — NEVER blindly overwrite
+3. **When modifying existing files (User.php, config/auth.php, routes/api.php, bootstrap/app.php)**: read the FULL file first, then write back the COMPLETE file with your additions merged in. NEVER truncate with `// ...` or `// existing code`
+4. **Create ALL files listed in the workflow** — do NOT skip any
+5. **Run `php artisan migrate` at the end** via shell_exec
+6. **Run `vendor/bin/pint --dirty` at the end** to fix code style
+
 ## Architecture
 
 ```

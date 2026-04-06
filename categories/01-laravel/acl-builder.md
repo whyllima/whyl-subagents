@@ -8,6 +8,17 @@ tools: Read, Write, Edit, Bash, Glob, Grep
 
 Configures complete ACL system with three-level architecture: `User → Role → Module → Permission`.
 
+## CRITICAL RULES — Read these FIRST
+
+1. **ALWAYS use shell_exec to run `composer require` FIRST** — before creating any files
+2. **ALWAYS use shell_exec to run `php artisan migrate` at the END**
+3. **ALWAYS use file_read to READ existing files before modifying them** — NEVER blindly overwrite
+4. **When modifying User.php or bootstrap/app.php**: read the FULL file first, then write back the COMPLETE file with your additions merged in. NEVER truncate with `// ...`
+5. **The `{Entity}Controller` section below is a DOCUMENTATION EXAMPLE ONLY** — do NOT create a file called `{Entity}Controller.php`. Instead, show the user how to apply middleware to their OWN controllers.
+6. **Create ALL migration files** — the system will NOT work without migrations
+7. **Create the PermissionsSeeder** — include all default permissions and modules
+8. **Run `vendor/bin/pint --dirty` at the end** to fix code style
+
 ## Architecture
 
 ```
@@ -593,54 +604,46 @@ class ModelAndPermissionMiddleware
 }
 ```
 
-## Register Middleware (`bootstrap/app.php`)
+## Register Middleware (`bootstrap/app.php`) — MERGE, do NOT replace
 
+**IMPORTANT:** Use file_read to read the EXISTING bootstrap/app.php first. Then ADD the middleware alias inside the existing withMiddleware callback. Keep ALL existing code intact.
+
+Add this middleware alias inside the existing `->withMiddleware()` call:
 ```php
-->withMiddleware(function (Middleware $middleware) {
-    $middleware->alias([
-        'model_permission' => \App\Http\Middleware\ModelAndPermissionMiddleware::class,
-    ]);
-})
+'model_permission' => \App\Http\Middleware\ModelAndPermissionMiddleware::class,
 ```
 
-## User Model
+## User Model — HOW TO MODIFY (do NOT replace)
 
+**IMPORTANT:** Use file_read to read the EXISTING User.php first. Then ADD these traits and keep ALL existing code intact.
+
+Traits to ADD to the User model class:
+- `use Spatie\Permission\Traits\HasRoles;` (import)
+- `use App\Traits\HasModulePermission;` (import)
+- Add `HasRoles, HasModulePermission` to the `use` statement inside the class
+
+Example of what to ADD (merge with existing code, do NOT replace the file):
 ```php
-namespace App\Models;
-
+// ADD these imports at the top:
 use App\Traits\HasModulePermission;
 use Spatie\Permission\Traits\HasRoles;
-use Tymon\JWTAuth\Contracts\JWTSubject;
-use Illuminate\Database\Eloquent\SoftDeletes;
-use Illuminate\Database\Eloquent\Concerns\HasUuids;
-use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Foundation\Auth\User as Authenticatable;
 
-class User extends Authenticatable implements JWTSubject
-{
-    use HasFactory, HasRoles, SoftDeletes, HasUuids, HasModulePermission;
-
-    protected $primaryKey = 'uuid';
-    public $incrementing = false;
-    protected $keyType = 'string';
-    // ...
-}
+// ADD these traits to the class use statement:
+use HasRoles, HasModulePermission;
 ```
 
-## Controller Usage
+## Controller Usage — DOCUMENTATION ONLY (do NOT create this file)
 
+This is a REFERENCE showing how controllers should apply middleware. Replace `{entity}` with the actual module name (e.g., `user`, `role`, `campaign`). Do NOT create a file called `{Entity}Controller.php`.
+
+Example for a UserController:
 ```php
-class {Entity}Controller extends Controller
-{
-    public function __construct()
-    {
-        $this->middleware('model_permission:show-{entity}')->only(['show']);
-        $this->middleware('model_permission:index-{entity}')->only(['index']);
-        $this->middleware('model_permission:store-{entity}')->only(['store']);
-        $this->middleware('model_permission:update-{entity}')->only(['update']);
-        $this->middleware('model_permission:delete-{entity}')->only(['destroy']);
-    }
-}
+// In the controller constructor or route definition:
+$this->middleware('model_permission:show-user')->only(['show']);
+$this->middleware('model_permission:index-user')->only(['index']);
+$this->middleware('model_permission:store-user')->only(['store']);
+$this->middleware('model_permission:update-user')->only(['update']);
+$this->middleware('model_permission:delete-user')->only(['destroy']);
 ```
 
 ## Seeder
@@ -688,21 +691,22 @@ Gate::before(function ($user, $ability) {
 });
 ```
 
-## Workflow
+## Workflow — Execute in this EXACT order
 
-1. Install spatie/laravel-permission
-2. Edit `config/permission.php` (model_morph_key = 'model_uuid')
-3. Create migrations (permission_tables, modules)
-4. Create Models (Permission, Role, Module, ModelHasPermission, RoleModulesPermission)
-5. Create Traits (HasNameLookup, HasGuard, HasModulePermission)
-6. Create Exception (NotLoggedInException)
-7. Create Middleware (ModelAndPermissionMiddleware)
-8. Register middleware in bootstrap/app.php
-9. Add traits to User model (HasRoles, HasModulePermission)
-10. Create Seeder (PermissionsSeeder)
-11. Run migrations and seeders
-12. Add middleware to Controllers
-13. Run `vendor/bin/pint --dirty`
+1. **shell_exec**: `composer require spatie/laravel-permission` — MUST run first
+2. **file_write**: `config/permission.php` — create config file
+3. **file_write**: Create migration files in `database/migrations/` — create BOTH migration files
+4. **file_write**: Create Models (Permission, Role, Module, ModelHasPermission, RoleModulesPermission)
+5. **file_write**: Create Traits (HasNameLookup, HasGuard, HasModulePermission)
+6. **file_write**: Create Exception (NotLoggedInException)
+7. **file_write**: Create Middleware (ModelAndPermissionMiddleware)
+8. **file_read** then **file_write**: Read bootstrap/app.php, merge middleware alias, write back COMPLETE file
+9. **file_read** then **file_write**: Read User.php, add traits (HasRoles, HasModulePermission), write back COMPLETE file
+10. **file_write**: Create Seeder (PermissionsSeeder)
+11. **file_read** then **file_write**: Read AppServiceProvider.php, add Gate::before for Super Admin, write back COMPLETE file
+12. **shell_exec**: `php artisan migrate`
+13. **shell_exec**: `php artisan db:seed --class=PermissionsSeeder`
+14. **shell_exec**: `vendor/bin/pint --dirty`
 
 ## Commands
 
