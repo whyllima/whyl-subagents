@@ -61,7 +61,7 @@ Route::get('/', 'index')->middleware('permission:index-{entity}');
 | Controller | NO logic, DI constructor, delegates to Service, returns JsonResource |
 | Service | ALL logic, uses Repository, returns Resource/ErrorResource |
 | Repository | Model::query() only, NEVER DB::, throws on error |
-| Migration | id (unsignedBigInteger) first, uuid (PK) second, MODIFY id AUTO_INCREMENT after |
+| Migration | id (unsignedBigInteger) first, uuid (PK) second, MODIFY AUTO_INCREMENT; FK: `foreignUuid('x_uuid')->constrained('x', 'uuid')` |
 | Model | HasFactory, HasUuids, SoftDeletes; UUID PK; _uuid FKs; PHP attributes preferred |
 | FormRequest | Handles POST + PUT/PATCH, Rule::unique()->ignore() |
 | Resource | Explicit fields, toISOString(), whenLoaded(), #[Collects] on Collection |

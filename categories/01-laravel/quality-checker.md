@@ -111,11 +111,17 @@ grep -rn '_id' app/Models/ 2>/dev/null | grep -v "model_id\|node_modules\|vendor
 # Migrations using ADD COLUMN id (should use MODIFY)
 grep -rl 'ADD COLUMN id' database/migrations/ 2>/dev/null
 
-# Migrations with wrong column order (uuid before id)
-grep -rn 'uuid.*primary' database/migrations/ 2>/dev/null | head -5
+# Migrations with wrong column order (uuid before id as first column)
+grep -rn '$table->uuid.*primary' database/migrations/ 2>/dev/null | head -10
 
 # Migrations with _id FKs (should be _uuid)
-grep -rn "'\w\+_id'" database/migrations/ 2>/dev/null | grep -v "model_id"
+grep -rn "_id'" database/migrations/ 2>/dev/null | grep -v "model_id\|node_id\|entity_id\|advertiser_id" | grep "foreign\|constrained"
+
+# Migrations using old FK syntax instead of foreignUuid()->constrained()
+grep -rn '$table->uuid.*\$table->foreign' database/migrations/ 2>/dev/null
+
+# Pivot tables missing composite primary key
+grep -rL "primary\|->id()" database/migrations/ 2>/dev/null | xargs grep -l "pivot\|_has_\|entity_tag" 2>/dev/null
 ```
 
 ### Resources

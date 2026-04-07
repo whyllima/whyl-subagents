@@ -65,21 +65,45 @@ database/migrations/xxxx_create_{entities}_table.php
 
 ### Migration
 
-Column order: `id` first, `uuid` (PK) second. MySQL does not allow AUTO_INCREMENT on a non-key column, so `id` is defined as `unsignedBigInteger` in the schema and promoted to AUTO_INCREMENT via `DB::statement` after creation. No traits needed.
+Column order: `id` first (unsignedBigInteger), `uuid` (PK) second, then FKs, then business columns.
+FK suffix always `_uuid`. Use `foreignUuid()->constrained()` shorthand.
 
 ```php
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Database\Migrations\Migration;
 
-Schema::create('{entities}', function (Blueprint $table) {
-    $table->unsignedBigInteger('id');
-    $table->uuid('uuid')->primary();
-    // columns...
-    $table->timestamps();
-    $table->softDeletes();
-});
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::create('{entities}', function (Blueprint $table) {
+            $table->unsignedBigInteger('id');
+            $table->uuid('uuid')->primary();
+            $table->foreignUuid('category_uuid')->constrained('categories', 'uuid')->cascadeOnDelete();
+            // Business columns...
+            $table->string('name');
+            $table->string('slug')->unique();
+            $table->text('description')->nullable();
+            $table->string('status')->default('active');
+            $table->timestamps();
+            $table->softDeletes();
 
-DB::statement('ALTER TABLE {entities} MODIFY id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT UNIQUE');
+            $table->index('status');
+        });
+
+        DB::statement('ALTER TABLE {entities} MODIFY id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT UNIQUE');
+    }
+
+    public function down(): void
+    {
+        Schema::dropIfExists('{entities}');
+    }
+};
 ```
+
+For full migration reference (pivots, composite keys, high-volume, nullable FKs): see **model-builder**.
 
 ### Model (PHP Attributes — Laravel 13)
 
