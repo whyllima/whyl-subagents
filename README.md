@@ -11,7 +11,7 @@ Agentes de IA especializados para o projeto WhylLima. Cada agente é focado em u
 | Plugin | Categoria | Descrição |
 |--------|-----------|-----------|
 | **whyll-agents** | Laravel | Builders e fixers: full-stack, model, API, endpoint, test, job, resource, seeder, event, JWT, ACL (config-driven + privilege escalation prevention), audit, AI agents, MCP servers, quality-checker e fixers. Laravel 13, PHP 8.3+, PHP attributes, domain folders, versioned API, Service-Repository. |
-| **whyll-agents-front** | Front-end | Builders para Nuxt 3: project, page, component, store, composable, API service, i18n, layout, plugin. Stack: Vue 3, Pinia, Axios, PrimeVue, Tailwind, TypeScript, i18n. |
+| **whyll-agents-front** | Front-end | Builders para Nuxt 4: project, page, component, store, composable, API service, i18n, layout, plugin, middleware, testing, quality-checker. Stack: Vue 3, Pinia, Axios, PrimeVue 4 (design tokens), Tailwind, TypeScript, i18n. |
 | **whyll-agents-biz** | Business & Product | product-manager, ux-researcher, business-analyst, content-marketer, project-manager, scrum-master, customer-success, sales-engineer, technical-writer, legal-advisor, wordpress-master. Discovery pipeline: ideia → problema → requisitos → posicionamento. |
 
 ---
@@ -89,38 +89,47 @@ Agentes de IA especializados para o projeto WhylLima. Cada agente é focado em u
 
 ---
 
-## Agentes disponíveis (whyll-agents-front – Front-end Nuxt 3)
+## Agentes disponíveis (whyll-agents-front – Front-end Nuxt 4)
 
-| Agente | Propósito | Linhas | ~Tokens |
-|--------|-----------|--------|---------|
-| `nuxt-project-builder` | Projeto Nuxt 3 do zero | 79 | ~200 |
-| `page-builder` | Páginas com file-based routing | 53 | ~150 |
-| `component-builder` | Componentes Vue SFC | 49 | ~145 |
-| `store-builder` | Pinia stores com SSR safety | 77 | ~170 |
-| `composable-builder` | Composables reutilizáveis | 55 | ~135 |
-| `api-service-builder` | Camada API: Axios → Proxy → Nitro | 87 | ~220 |
-| `i18n-manager` | Locales e traduções | 72 | ~150 |
-| `layout-builder` | Layouts, Sidebar, Menu, dark mode | 55 | ~155 |
-| `plugin-builder` | Plugins Nuxt (client/server) | 52 | ~120 |
+### Builders
 
-### Resumo de Tokens (Front-end)
+| Agente | Propósito |
+|--------|-----------|
+| `nuxt-project-builder` | Projeto Nuxt 4 do zero com PrimeVue 4 design tokens |
+| `page-builder` | Páginas com file-based routing, layout props, route groups |
+| `component-builder` | Componentes Vue SFC com PrimeVue 4 (Select, DatePicker, Tabs) |
+| `store-builder` | Pinia stores com SSR safety e `undefined` defaults |
+| `composable-builder` | Composables + `shared/utils/` + `createUseFetch` |
+| `api-service-builder` | Camada API: Axios → Proxy → Nitro + `createUseFetch` |
+| `i18n-manager` | Locales e traduções |
+| `layout-builder` | Layouts, Drawer, Menu, dark mode via `.p-dark` |
+| `plugin-builder` | Plugins Nuxt com `usePreset`/`updatePreset` |
+| `middleware-builder` | Route middleware, auth guards, route groups |
+| `testing-builder` | Vitest + Vue Test Utils + Pinia testing |
 
-| Categoria | Agentes | Total Linhas | ~Tokens |
-|-----------|---------|--------------|---------|
-| Builders | 9 | 579 | ~1.4k |
+### Qualidade
+
+| Agente | Propósito |
+|--------|-----------|
+| `quality-checker` | Audita código Nuxt 4 + PrimeVue 4 compliance |
 
 ### Convenções (Front-end)
 
 | Convenção | Padrão |
 |-----------|--------|
 | SFC Order | `<script setup>` → `<template>` → `<style scoped>` |
-| PrimeVue | Componentes auto-importados, NUNCA importar. Só utilities: `FilterMatchMode`, `useToast`, `useConfirm` |
+| PrimeVue 4 | Auto-importado via `@primevue/nuxt-module`. Utilities: `FilterMatchMode` de `@primevue/core/api` |
+| PrimeVue 4 Names | `<Select>`, `<DatePicker>`, `<ToggleSwitch>`, `<Drawer>`, `<Popover>`, `<Tabs>` |
+| PrimeVue 4 Theme | Design Tokens via presets (`Aura`, `Lara`). Sem CSS imports. Dark mode `.p-dark` |
+| PrimeVue 4 Fluid | `fluid` prop ou `<Fluid>` wrapper (não `.p-fluid` class) |
+| Nuxt 4 Dir | `app/` como srcDir, `shared/` para cross-context, `#server` alias |
+| Data Fetching | `shallowRef` por padrão, `undefined` defaults, singleton por key |
 | Error Handling | `.then().catch()` para async. try/catch só para ops síncronas críticas |
 | SSR Safety | `import.meta.client`, `<ClientOnly>`, `typeof window !== 'undefined'` |
 | i18n | `useI18n()` + `t()` para todo texto. Estratégia `no_prefix` |
 | State | Pinia stores para estado complexo; composables para lógica UI |
-| Styling | Tailwind + `:deep()` para PrimeVue overrides |
-| Path Alias | `@/` → `app/`, `#imports` para auto-imports Nuxt |
+| Styling | Tailwind + `:deep()` para PrimeVue overrides. CSS layers para coexistência |
+| Path Alias | `@/` → `app/`, `#shared` → `shared/`, `#server` → `server/` |
 
 ---
 
@@ -456,6 +465,9 @@ Integração com API externa       → api-service-builder
 Traduções/idiomas                → i18n-manager
 Layout/sidebar/menu/dark mode    → layout-builder
 Plugin Vue/Nuxt                  → plugin-builder
+Auth guards/redirects            → middleware-builder
+Testes unitários/componente      → testing-builder
+Auditar código Nuxt/PrimeVue     → quality-checker
 ```
 
 ---
@@ -477,14 +489,15 @@ Plugin Vue/Nuxt                  → plugin-builder
 
 ### Front-end (Nuxt)
 
-- **Nuxt:** 4.2.0 (SSR habilitado)
-- **Vue:** 3.4.34
-- **State:** Pinia 2.1.7
-- **HTTP:** Axios 1.13.2
-- **UI:** PrimeVue 4.3.1
-- **CSS:** Tailwind CSS 3.4.6
-- **i18n:** @nuxtjs/i18n 10.2.0
-- **Language:** TypeScript 5.3.3
+- **Nuxt:** 4.4+ (SSR habilitado, `app/` srcDir, `shared/` directory)
+- **Vue:** 3.5+ (Vue Router v5)
+- **State:** Pinia 2.3+
+- **HTTP:** Axios 1.13+ / `createUseFetch` (Nuxt 4 native)
+- **UI:** PrimeVue 4.5+ (Design Tokens, `@primeuix/themes`)
+- **CSS:** Tailwind CSS 4+ (CSS layers com PrimeVue)
+- **i18n:** @nuxtjs/i18n 10+
+- **Language:** TypeScript 5.5+ (`noUncheckedIndexedAccess: true`)
+- **Testing:** Vitest + @nuxt/test-utils + Vue Test Utils
 
 ---
 
@@ -555,7 +568,10 @@ whyl-subagents/
     │   ├── api-service-builder.md
     │   ├── i18n-manager.md
     │   ├── layout-builder.md
-    │   └── plugin-builder.md
+    │   ├── plugin-builder.md
+    │   ├── middleware-builder.md
+    │   ├── testing-builder.md
+    │   └── quality-checker.md
     └── 03-business-product/
         ├── .claude-plugin/
         │   └── plugin.json

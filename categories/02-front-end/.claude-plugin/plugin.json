@@ -1,7 +1,7 @@
 {
   "name": "whyll-agents-front",
-  "version": "2.1.0",
-  "description": "Front-end specialist agents for Nuxt 3 projects - builders for pages, components, stores, composables, API services, i18n, layouts, plugins, middleware, testing, and quality checking. Stack: Nuxt 3, Vue 3, Pinia, Axios, PrimeVue, Tailwind CSS, TypeScript, @nuxtjs/i18n, Vitest.",
+  "version": "3.0.0",
+  "description": "Front-end specialist agents for Nuxt 4 projects - builders for pages, components, stores, composables, API services, i18n, layouts, plugins, middleware, testing, and quality checking. Stack: Nuxt 4, Vue 3, Pinia, Axios, PrimeVue 4 (design tokens), Tailwind CSS, TypeScript, @nuxtjs/i18n, Vitest.",
   "author": {
     "name": "Whyl",
     "url": "https://github.com/whyllima/whyl-subagents"

@@ -1,6 +1,6 @@
 ---
 name: i18n-manager
-description: Creates and manages i18n locale files, translation keys, and @nuxtjs/i18n configuration for Nuxt 3 projects.
+description: Creates and manages i18n locale files, translation keys, and @nuxtjs/i18n configuration for Nuxt 4 projects.
 tools: Read, Write, Edit, Bash, Glob, Grep
 ---
 
@@ -24,6 +24,8 @@ i18n: {
     detectBrowserLanguage: { useCookie: true, cookieKey: 'i18n_redirected' },
 }
 ```
+
+Note: In Nuxt 4, locale files can be at project root `locales/` or inside `app/locales/` — ensure `langDir` matches.
 
 ## Locale File Structure
 

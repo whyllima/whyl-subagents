@@ -1,6 +1,6 @@
 ---
 name: api-service-builder
-description: Creates Nuxt 3 API service layers with Axios client, Nitro server proxy, and secure server-side API calls.
+description: Creates Nuxt 4 API service layers with Axios client, Nitro server proxy, and secure server-side API calls.
 tools: Read, Write, Edit, Bash, Glob, Grep
 ---
 
@@ -57,6 +57,11 @@ export async function secureApiCall(endpoint: string, options: any = {}) {
 }
 ```
 
+Import within server code using `#server` alias:
+```typescript
+import { secureApiCall } from '#server/utils/api';
+```
+
 ## Layer 4 - Service Class (`app/service/`)
 
 For local/static data (not external API):
@@ -70,6 +75,39 @@ export class EntityService {
 }
 ```
 
+## Alternative: createUseFetch (Nuxt 4)
+
+Instead of Layer 1 Axios, use Nuxt 4's `createUseFetch` for SSR-compatible data fetching:
+
+```typescript
+// app/composables/useApi.ts
+export const useApi = createUseFetch('/api/proxy', {
+    headers: { Accept: 'application/json' },
+    onRequest({ options }) {
+        const token = useCookie('token');
+        if (token.value) {
+            options.headers.set('Authorization', `Bearer ${token.value}`);
+        }
+    },
+    onResponseError({ response }) {
+        if (response.status === 401) navigateTo('/auth/login');
+    },
+});
+
+// Usage in pages/components:
+const { data: items, status } = await useApi('/items');
+```
+
+## Error Handling (Nuxt 4)
+
+In server handlers, use updated Web API naming:
+
+```typescript
+// Nuxt 4: use status/statusText (not statusCode/statusMessage)
+throw createError({ status: 404, statusText: 'Not Found' });
+throw createError({ status: 422, statusText: 'Validation failed', data: errors });
+```
+
 ## Rules
 
 - External API calls: always through Axios → Proxy → secureApiCall (never expose API_TOKEN)
@@ -78,10 +116,11 @@ export class EntityService {
 - 401 handling: clear tokens + redirect to `/auth/login`
 - runtimeConfig: `apiBaseUrl` and `apiToken` server-only; `public.appName` client-accessible
 - **Error handling**: use `.then().catch().finally()` for async API calls (NOT try/catch with await). Use try/catch only for synchronous critical operations (e.g. JSON.parse)
+- **Nuxt 4**: Prefer `createUseFetch` over raw Axios for SSR-compatible pages; keep Axios for client-only or plugin contexts
 
 ## Workflow
 
-1. Determine need: external API proxy, service class, or new Axios endpoint
-2. Read existing `server/api/`, `app/utils/`, `app/service/`
+1. Determine need: external API proxy, createUseFetch composable, service class, or Axios endpoint
+2. Read existing `server/api/`, `app/utils/`, `app/service/`, `app/composables/`
 3. Create appropriate layer files
 4. Add runtimeConfig entries to `nuxt.config.ts` if needed

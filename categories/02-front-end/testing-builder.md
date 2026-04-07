@@ -1,12 +1,12 @@
 ---
 name: testing-builder
-description: Creates Vitest unit tests and component tests for Nuxt 3 with Vue Test Utils, Pinia testing, and composable testing patterns.
+description: Creates Vitest unit tests and component tests for Nuxt 4 with Vue Test Utils, Pinia testing, and composable testing patterns.
 tools: Read, Write, Edit, Bash, Glob, Grep
 ---
 
 # Testing Builder
 
-Creates tests for Nuxt 3 apps using Vitest + Vue Test Utils.
+Creates tests for Nuxt 4 apps using Vitest + Vue Test Utils.
 
 ## Before Starting
 
@@ -64,7 +64,7 @@ File: `tests/components/{Domain}/{ComponentName}.test.ts`
 ```ts
 import { mountSuspended } from '@nuxt/test-utils/runtime'
 import { describe, expect, it } from 'vitest'
-import {ComponentName} from '~/app/components/{Domain}/{ComponentName}.vue'
+import {ComponentName} from '#components'
 
 describe('{ComponentName}', () => {
   it('renders correctly', async () => {
@@ -94,7 +94,7 @@ File: `tests/stores/{storeName}.test.ts`
 ```ts
 import { createPinia, setActivePinia } from 'pinia'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { use{Entity}Store } from '~/app/stores/{entity}'
+import { use{Entity}Store } from '~/stores/{entity}'
 
 describe('use{Entity}Store', () => {
   beforeEach(() => {
@@ -106,7 +106,7 @@ describe('use{Entity}Store', () => {
 
     expect(store.items).toEqual([])
     expect(store.loading).toBe(false)
-    expect(store.error).toBeNull()
+    expect(store.error).toBeUndefined()
   })
 
   it('fetches items', async () => {
@@ -129,13 +129,13 @@ File: `tests/composables/{composableName}.test.ts`
 
 ```ts
 import { describe, expect, it } from 'vitest'
-import { use{ComposableName} } from '~/app/composables/use{ComposableName}'
+import { use{ComposableName} } from '~/composables/use{ComposableName}'
 
 describe('use{ComposableName}', () => {
   it('returns expected initial values', () => {
     const { value, isLoading } = use{ComposableName}()
 
-    expect(value.value).toBeNull()
+    expect(value.value).toBeUndefined()
     expect(isLoading.value).toBe(false)
   })
 
@@ -163,7 +163,7 @@ const mockAxios = {
   delete: vi.fn(),
 }
 
-vi.mock('~/app/utils/axios', () => ({
+vi.mock('~/utils/axios', () => ({
   default: mockAxios,
 }))
 
@@ -172,7 +172,7 @@ describe('{Entity}Service', () => {
     const mockResponse = { data: { data: [{ uuid: '1', name: 'Test' }] } }
     mockAxios.get.mockResolvedValue(mockResponse)
 
-    const { {Entity}Service } = await import('~/app/services/{entity}')
+    const { {Entity}Service } = await import('~/services/{entity}')
     const result = await {Entity}Service.list()
 
     expect(mockAxios.get).toHaveBeenCalledWith('/{entities}')
@@ -186,9 +186,12 @@ describe('{Entity}Service', () => {
 - **Test files** mirror source structure: `tests/components/`, `tests/stores/`, `tests/composables/`
 - **Naming:** `{Name}.test.ts` (not `.spec.ts`)
 - **Use `mountSuspended`** from `@nuxt/test-utils/runtime` for components (handles Nuxt context)
+- **Component imports:** Use `#components` alias for auto-imported components
+- **Store/composable imports:** Use `~/stores/` / `~/composables/` (alias for `app/`)
 - **Pinia:** Always `setActivePinia(createPinia())` in `beforeEach`
 - **SSR-safe:** Tests run in `happy-dom` environment by default
 - **Mock external deps:** Use `vi.mock()` for Axios, `vi.stubGlobal()` for globals
+- **Nuxt 4:** Default values are `undefined` (not `null`) — use `toBeUndefined()` in assertions
 
 ## Workflow
 

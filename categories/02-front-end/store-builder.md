@@ -18,7 +18,7 @@ export const useEntityStore = defineStore('entity', {
     state: (): EntityState => ({
         items: [],
         loading: false,
-        error: null as string | null,
+        error: undefined as string | undefined,
         // filters, pagination, selection...
     }),
 
@@ -67,6 +67,8 @@ export const useEntityStore = defineStore('entity', {
 - **Error handling**: use `.then().catch().finally()` for async calls (NOT try/catch with await). Use try/catch only for synchronous critical operations
 - Unicode-safe search: `.normalize('NFD').replace(/[\u0300-\u036f]/g, '')`
 - Conditional loading: check `items.length === 0` before fetching
+- **Nuxt 4**: error state uses `undefined` (not `null`) to align with `useAsyncData` defaults
+- **Nuxt 4**: `clearNuxtState()` resets to initial value from `init` function (not `undefined`)
 
 ## Workflow
 

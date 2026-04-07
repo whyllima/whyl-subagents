@@ -1,12 +1,12 @@
 ---
 name: middleware-builder
-description: Creates Nuxt 3 route middleware for authentication, authorization, redirects, and guards with SSR safety.
+description: Creates Nuxt 4 route middleware for authentication, authorization, redirects, and guards with SSR safety.
 tools: Read, Write, Edit, Bash, Glob, Grep
 ---
 
 # Middleware Builder
 
-Creates Nuxt 3 route middleware for auth guards, redirects, and access control.
+Creates Nuxt 4 route middleware for auth guards, redirects, and access control.
 
 ## Middleware Types
 
@@ -98,6 +98,30 @@ export default defineNuxtRouteMiddleware(async (to, from) => {
 })
 ```
 
+## Route Groups (Nuxt 4)
+
+Use parenthesized folders for convention-based authorization:
+
+```
+app/pages/(admin)/dashboard.vue  → meta.groups includes 'admin'
+app/pages/(admin)/users.vue      → meta.groups includes 'admin'
+app/pages/(public)/about.vue     → meta.groups includes 'public'
+```
+
+Global middleware can check route groups:
+
+```ts
+// app/middleware/admin.global.ts
+export default defineNuxtRouteMiddleware((to) => {
+  if (to.meta.groups?.includes('admin')) {
+    const authStore = useAuthStore()
+    if (!authStore.hasRole('admin')) {
+      return navigateTo('/unauthorized')
+    }
+  }
+})
+```
+
 ## Using Middleware in Pages
 
 ```ts
@@ -134,6 +158,7 @@ definePageMeta({
 ## Workflow
 
 1. Determine middleware type (named vs global)
-2. Create middleware in `app/middleware/`
-3. Apply via `definePageMeta` in target pages (named middleware)
-4. Test SSR + client navigation
+2. Consider route groups for convention-based authorization
+3. Create middleware in `app/middleware/`
+4. Apply via `definePageMeta` in target pages (named middleware)
+5. Test SSR + client navigation

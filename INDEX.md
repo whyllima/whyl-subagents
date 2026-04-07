@@ -30,21 +30,21 @@ Update: `cd whyl-subagents && git pull`
 | formrequest-fixer | formrequest-fixer.md | Validação create/update |
 | resource-fixer | resource-fixer.md | #[Collects], datas ISO |
 
-## 02 - Front-end / Nuxt (categories/02-front-end/)
+## 02 - Front-end / Nuxt 4 + PrimeVue 4 (categories/02-front-end/)
 | Agent | File | Use when |
 |---|---|---|
-| nuxt-project-builder | nuxt-project-builder.md | Projeto Nuxt do zero |
-| page-builder | page-builder.md | Páginas com file-based routing |
-| component-builder | component-builder.md | Componentes Vue SFC |
-| store-builder | store-builder.md | Pinia stores |
-| composable-builder | composable-builder.md | Composables reutilizáveis |
-| api-service-builder | api-service-builder.md | Camada API Axios/Nitro |
+| nuxt-project-builder | nuxt-project-builder.md | Projeto Nuxt 4 do zero (PrimeVue 4 design tokens) |
+| page-builder | page-builder.md | Páginas com layout props, route groups |
+| component-builder | component-builder.md | Componentes PrimeVue 4 (Select, DatePicker, Tabs) |
+| store-builder | store-builder.md | Pinia stores (undefined defaults) |
+| composable-builder | composable-builder.md | Composables + shared/ + createUseFetch |
+| api-service-builder | api-service-builder.md | Camada API Axios/Nitro + createUseFetch |
 | i18n-manager | i18n-manager.md | Locales e traduções |
-| layout-builder | layout-builder.md | Layouts, sidebar, dark mode |
-| plugin-builder | plugin-builder.md | Plugins Nuxt |
-| middleware-builder | middleware-builder.md | Auth guards, redirects, SSR middleware |
-| testing-builder | testing-builder.md | Vitest + Vue Test Utils |
-| quality-checker | quality-checker.md | Audita código frontend |
+| layout-builder | layout-builder.md | Layouts, Drawer, dark mode .p-dark |
+| plugin-builder | plugin-builder.md | Plugins Nuxt + usePreset/updatePreset |
+| middleware-builder | middleware-builder.md | Auth guards, route groups, SSR middleware |
+| testing-builder | testing-builder.md | Vitest + Vue Test Utils (#components) |
+| quality-checker | quality-checker.md | Audita Nuxt 4 + PrimeVue 4 compliance |
 
 ## 03 - Business & Product (categories/03-business-product/)
 | Agent | File | Use when |
