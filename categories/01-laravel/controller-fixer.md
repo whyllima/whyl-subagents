@@ -1,6 +1,6 @@
 ---
 name: controller-fixer
-description: Fixes Laravel controllers - removes logic, delegates to Service, returns JsonResource. ACL support.
+description: Fixes Laravel 13 controllers - removes logic, uses DI constructor, delegates to Service, returns JsonResource. Domain folders. ACL support.
 tools: Read, Write, Edit, Bash, Glob, Grep
 ---
 
@@ -14,75 +14,66 @@ Removes logic from Controller, delegates everything to Service.
 ls app/Models/Module.php 2>/dev/null
 ```
 
-**If ACL exists:** Ensure middleware permissions in constructor.
-**If NO ACL:** Remove any middleware permissions if present.
-
 ## Rules
 
 - **Remove:** try-catch, Log::, Entity::query(), response()->json()
-- **Add:** Service injection, JsonResource returns
-- **Add (if ACL):** middleware permissions in constructor
+- **Add:** DI constructor, JsonResource return types
+- **Move to:** domain folder if flat (`Controllers/{Domain}/`)
 - **Replace:** Request with EntityRequest
 
 ## Correct Pattern
 
-### Without ACL
-
 ```php
+namespace App\Http\Controllers\{Domain};
+
+use App\Http\Controllers\Controller;
+use App\Http\Requests\{Domain}\{Entity}Request;
+use App\Models\{Domain}\{Entity};
+use App\Services\{Domain}\{Entity}Service;
+use Illuminate\Http\Resources\Json\JsonResource;
+
 class {Entity}Controller extends Controller
 {
-    private {Entity}Service $service;
-    public function __construct() { $this->service = new {Entity}Service(); }
-    
-    public function index(): JsonResource { return $this->service->index(); }
-    public function show({Entity} $e): JsonResource { return $this->service->show($e); }
-    public function store({Entity}Request $r): JsonResource { return $this->service->store($r->validated()); }
-    public function update({Entity} $e, {Entity}Request $r): JsonResource { return $this->service->update($e, $r->validated()); }
-    public function destroy({Entity} $e): JsonResource { return $this->service->destroy($e); }
-}
-```
+    public function __construct(private {Entity}Service $service) {}
 
-### With ACL (if Module.php exists)
-
-```php
-class {Entity}Controller extends Controller
-{
-    private {Entity}Service $service;
-
-    public function __construct()
+    public function index(): JsonResource
     {
-        $this->service = new {Entity}Service();
-        $this->middleware('model_permission:index-{entity}')->only(['index']);
-        $this->middleware('model_permission:show-{entity}')->only(['show']);
-        $this->middleware('model_permission:store-{entity}')->only(['store']);
-        $this->middleware('model_permission:update-{entity}')->only(['update']);
-        $this->middleware('model_permission:delete-{entity}')->only(['destroy']);
+        return $this->service->index();
     }
-    
-    public function index(): JsonResource { return $this->service->index(); }
-    public function show({Entity} $e): JsonResource { return $this->service->show($e); }
-    public function store({Entity}Request $r): JsonResource { return $this->service->store($r->validated()); }
-    public function update({Entity} $e, {Entity}Request $r): JsonResource { return $this->service->update($e, $r->validated()); }
-    public function destroy({Entity} $e): JsonResource { return $this->service->destroy($e); }
+
+    public function show({Entity} $entity): JsonResource
+    {
+        return $this->service->show($entity);
+    }
+
+    public function store({Entity}Request $request): JsonResource
+    {
+        return $this->service->store($request->validated());
+    }
+
+    public function update({Entity} $entity, {Entity}Request $request): JsonResource
+    {
+        return $this->service->update($entity, $request->validated());
+    }
+
+    public function destroy({Entity} $entity): JsonResource
+    {
+        return $this->service->destroy($entity);
+    }
 }
 ```
 
-## Custom Methods with ACL
+## ACL Note
 
-For custom methods, add matching permissions:
-
-```php
-// In constructor
-$this->middleware('model_permission:export-{entity}')->only(['export']);
-$this->middleware('model_permission:metrics-{entity}')->only(['metrics']);
-$this->middleware('model_permission:toggle-{entity}')->only(['toggle']);
-```
+Permission middleware is now per-route in `routes/api/v1.php`, NOT in controller constructor.
+If ACL exists and controller has constructor middleware, move to routes file.
 
 ## Workflow
 
-1. **Check for ACL** (ls app/Models/Module.php)
+1. Check for ACL
 2. Read controller
 3. Check if Service exists (create with service-fixer if not)
 4. Check if FormRequest exists (create if not)
-5. Rewrite controller (with ACL middleware if exists)
-6. Run `vendor/bin/pint --dirty`
+5. Rewrite controller with DI, no logic, domain namespace
+6. Move permission middleware to routes if needed
+7. Run `vendor/bin/pint --dirty`

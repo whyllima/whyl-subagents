@@ -1,37 +1,42 @@
 ---
 name: formrequest-fixer
-description: Fixes Laravel FormRequests - handles create/update with UUID ignore.
+description: Fixes Laravel 13 FormRequests - handles create/update with UUID ignore, domain folders.
 tools: Read, Write, Edit, Bash, Glob, Grep
 ---
 
 # FormRequest Fixer
 
-Ensures FormRequest handles both create and update with proper unique rules.
+Fixes FormRequests to handle both create and update with UUID-based unique ignore.
 
 ## Rules
 
-- **Add:** authorize() returning true
-- **Use:** array syntax (not pipes)
-- **Handle:** POST (create) and PUT/PATCH (update)
-- **Use:** Rule::unique()->ignore($uuid, 'uuid') for updates
+- **Must have:** authorize(), rules(), POST+PUT handling, array syntax, domain namespace
+- **Must NOT have:** pipe syntax (`required|string`), missing update handling
 
 ## Correct Pattern
 
 ```php
+namespace App\Http\Requests\{Domain};
+
+use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
+
 class {Entity}Request extends FormRequest
 {
-    public function authorize(): bool { return true; }
+    public function authorize(): bool
+    {
+        return true;
+    }
 
     public function rules(): array
     {
         $rules = [
             'name' => ['required', 'string', 'max:255'],
-            'category_uuid' => ['nullable', 'uuid', 'exists:categories,uuid'],
         ];
 
         if ($this->isMethod('put') || $this->isMethod('patch')) {
-            $uuid = $this->route('{entity}')->uuid;
-            $rules['name'][] = Rule::unique('{entities}', 'name')->ignore($uuid, 'uuid');
+            $rules['name'][] = Rule::unique('{entities}', 'name')
+                ->ignore($this->route('{entity}')->uuid, 'uuid');
         } else {
             $rules['name'][] = 'unique:{entities},name';
         }
@@ -41,10 +46,18 @@ class {Entity}Request extends FormRequest
 }
 ```
 
+## Common Fixes
+
+| Before (Bad) | After (Good) |
+|---|---|
+| `'name' => 'required\|string'` | `'name' => ['required', 'string']` |
+| No PUT handling | Add `isMethod('put')` with `Rule::unique()->ignore()` |
+| `->ignore($this->route('entity'))` | `->ignore($this->route('{entity}')->uuid, 'uuid')` |
+
 ## Workflow
 
 1. Read FormRequest
-2. Add authorize() if missing
-3. Convert pipe to array syntax
-4. Add update handling with ignore
+2. Fix namespace to domain folder
+3. Convert pipe syntax to array
+4. Add PUT/PATCH handling if missing
 5. Run `vendor/bin/pint --dirty`

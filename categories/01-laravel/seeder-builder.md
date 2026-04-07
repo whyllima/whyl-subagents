@@ -1,68 +1,81 @@
 ---
 name: seeder-builder
-description: Creates Laravel Factories and Seeders with Faker.
+description: Creates Laravel 13 Factories with #[UseModel] attribute and Seeders with Faker, domain-aware.
 tools: Read, Write, Edit, Bash, Glob, Grep
 ---
 
 # Seeder Builder
 
-Creates: Factory + Seeder
+Creates Factory + Seeder for test/dev data.
 
-## Factory Pattern
+## Factory (PHP Attributes — Laravel 13)
+
+File: `database/factories/{Domain}/{Entity}Factory.php`
 
 ```php
+namespace Database\Factories\{Domain};
+
+use App\Models\{Domain}\{Entity};
+use Illuminate\Database\Eloquent\Factories\Attributes\UseModel;
+use Illuminate\Database\Eloquent\Factories\Factory;
+
+#[UseModel({Entity}::class)]
 class {Entity}Factory extends Factory
 {
-    protected $model = {Entity}::class;
-
     public function definition(): array
     {
-        $name = fake()->unique()->sentence(3);
         return [
-            'name' => $name,
-            'slug' => Str::slug($name),
+            'name' => fake()->sentence(3),
+            'slug' => fake()->unique()->slug(),
             'description' => fake()->paragraph(),
-            'status' => fake()->randomElement(['draft', 'active', 'archived']),
-            'category_uuid' => Category::factory(),
+            'status' => fake()->randomElement(['active', 'inactive']),
         ];
     }
 
-    public function active(): static { return $this->state(['status' => 'active']); }
-    public function draft(): static { return $this->state(['status' => 'draft']); }
+    public function active(): static
+    {
+        return $this->state(fn (array $attributes) => ['status' => 'active']);
+    }
+
+    public function inactive(): static
+    {
+        return $this->state(fn (array $attributes) => ['status' => 'inactive']);
+    }
 }
 ```
 
-## Seeder Pattern
+## Seeder
 
 ```php
+namespace Database\Seeders;
+
+use App\Models\{Domain}\{Entity};
+use Illuminate\Database\Seeder;
+
 class {Entity}Seeder extends Seeder
 {
     public function run(): void
     {
-        $categories = Category::all()->isEmpty() ? Category::factory(5)->create() : Category::all();
-        
-        {Entity}::factory(20)->active()->recycle($categories)->create();
-        {Entity}::factory(10)->draft()->recycle($categories)->create();
+        {Entity}::factory()->count(50)->create();
+        {Entity}::factory()->active()->count(30)->create();
+        {Entity}::factory()->inactive()->count(10)->create();
     }
 }
 ```
 
-## Faker Quick Reference
+## Factory Relationship Patterns
 
 ```php
-fake()->sentence(3);              // String
-fake()->paragraph();              // Text
-fake()->randomElement(['a','b']); // Random from array
-fake()->numberBetween(1, 100);    // Int
-fake()->boolean(70);              // 70% true
-fake()->optional()->dateTime();   // Nullable
-fake()->unique()->email();        // Unique
-Str::slug($name);                 // Slug
+// BelongsTo — reference existing or create
+'category_uuid' => Category::factory(),
+
+// Or reference existing records
+'category_uuid' => Category::inRandomOrder()->first()?->uuid,
 ```
 
 ## Workflow
 
-1. Read model for fields
-2. Create Factory with states
-3. Create Seeder
+1. Determine domain name
+2. Create Factory in `database/factories/{Domain}/`
+3. Create Seeder in `database/seeders/`
 4. Run `vendor/bin/pint --dirty`

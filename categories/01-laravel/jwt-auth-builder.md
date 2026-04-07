@@ -1,6 +1,6 @@
 ---
 name: jwt-auth-builder
-description: Configures JWT authentication in Laravel 12 with token cache management, password reset, profile update, and audits. ACL support is conditional.
+description: Configures JWT authentication in Laravel 13 with token cache management, password reset, profile update, domain folders, and audits. ACL support is conditional.
 tools: Read, Write, Edit, Bash, Glob, Grep
 ---
 
@@ -12,7 +12,9 @@ Configures complete JWT authentication with single-session enforcement via token
 
 1. **ALWAYS use shell_exec to run `composer require` commands FIRST** — before creating any files
 2. **ALWAYS use file_read to READ existing files before modifying them** — NEVER blindly overwrite
-3. **When modifying existing files (User.php, config/auth.php, routes/api.php, bootstrap/app.php)**: read the FULL file first, then write back the COMPLETE file with your additions merged in. NEVER truncate with `// ...` or `// existing code`
+3. **When modifying existing files (User.php, config/auth.php, routes/api/v1.php, bootstrap/app.php)**: read the FULL file first, then write back the COMPLETE file with your additions merged in. NEVER truncate with `// ...` or `// existing code`
+4. **Use domain folders:** Controllers in `Controllers/Auth/`, Services in `Services/Auth/`, Repositories in `Repositories/Auth/`, Requests in `Requests/Auth/`, Resources in `Resources/Auth/`
+5. **Routes in `routes/api/v1.php`** — versioned endpoints with per-route permission middleware (if ACL exists)
 4. **Create ALL files listed in the workflow** — do NOT skip any
 5. **Run `php artisan migrate` at the end** via shell_exec
 6. **Run `vendor/bin/pint --dirty` at the end** to fix code style
@@ -91,33 +93,46 @@ class User extends Authenticatable implements JWTSubject
 }
 ```
 
-## Routes (`routes/api.php`)
+## Routes (`routes/api/v1.php`)
 
 ```php
-use App\Http\Controllers\AuthController;
+use App\Http\Controllers\Auth\AuthController;
 
+// Public auth routes
 Route::controller(AuthController::class)->prefix('auth')->group(function () {
     Route::post('/', 'login');
-    Route::get('/', 'me');
-    Route::delete('/', 'logout');
-    Route::put('/', 'refresh');
     Route::post('/forgot-password', 'forgotPassword')->name('password.email');
     Route::post('/reset-password', 'resetPassword')->name('password.update');
     Route::get('/reset-password/{token}', 'showResetForm')->name('password.reset');
-    Route::put('/profile', 'updateProfile');
-    Route::get('/audits', 'getUserAudits');
+});
+
+// Protected auth routes
+Route::middleware('jwt')->group(function () {
+    Route::controller(AuthController::class)->prefix('auth')->group(function () {
+        Route::get('/', 'me');
+        Route::delete('/', 'logout');
+        Route::put('/', 'refresh');
+        Route::put('/profile', 'updateProfile');
+        Route::get('/audits', 'getUserAudits');
+    });
 });
 ```
 
 **Note:** Always add `use` import at top of routes file, never use inline namespace.
 
-## AuthController (NO LOGIC)
+## AuthController (NO LOGIC — DI constructor)
+
+File: `app/Http/Controllers/Auth/AuthController.php`
 
 ```php
+namespace App\Http\Controllers\Auth;
+
+use App\Http\Controllers\Controller;
+use App\Services\Auth\AuthService;
+
 class AuthController extends Controller
 {
-    private AuthService $service;
-    public function __construct() { $this->service = new AuthService(); }
+    public function __construct(private AuthService $service) {}
 
     public function login(LoginRequest $r): JsonResource { return $this->service->login($r->validated()); }
     public function me(): JsonResource { return $this->service->me(); }

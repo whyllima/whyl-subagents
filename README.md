@@ -10,7 +10,7 @@ Agentes de IA especializados para o projeto WhylLima. Cada agente é focado em u
 
 | Plugin | Categoria | Descrição |
 |--------|-----------|-----------|
-| **whyll-agents** | Laravel | Builders e fixers: full-stack, model, API, endpoint, test, job, resource, seeder, event, JWT, ACL, audit, quality-checker e fixers. Laravel 12, PHP 8.3, Service-Repository. |
+| **whyll-agents** | Laravel | Builders e fixers: full-stack, model, API, endpoint, test, job, resource, seeder, event, JWT, ACL (config-driven + privilege escalation prevention), audit, AI agents, MCP servers, quality-checker e fixers. Laravel 13, PHP 8.3+, PHP attributes, domain folders, versioned API, Service-Repository. |
 | **whyll-agents-front** | Front-end | Builders para Nuxt 3: project, page, component, store, composable, API service, i18n, layout, plugin. Stack: Vue 3, Pinia, Axios, PrimeVue, Tailwind, TypeScript, i18n. |
 | **whyll-agents-biz** | Business & Product | product-manager, ux-researcher, business-analyst, content-marketer, project-manager, scrum-master, customer-success, sales-engineer, technical-writer, legal-advisor, wordpress-master. Discovery pipeline: ideia → problema → requisitos → posicionamento. |
 
@@ -61,6 +61,8 @@ Agentes de IA especializados para o projeto WhylLima. Cada agente é focado em u
 | `jwt-auth-builder` | Autenticação JWT completa | 587 | ~1.5k |
 | `acl-builder` | Sistema ACL Modular (3 níveis) | 723 | ~1.8k |
 | `audit-builder` | Auditoria de Models | 421 | ~1k |
+| `ai-agent-builder` | AI Agents (laravel/ai) | ~150 | ~375 |
+| `mcp-server-builder` | MCP Servers (laravel/mcp) | ~140 | ~350 |
 
 ### Qualidade e Fixers (auditar e corrigir)
 
@@ -78,9 +80,10 @@ Agentes de IA especializados para o projeto WhylLima. Cada agente é focado em u
 
 | Categoria | Agentes | Total Linhas | ~Tokens |
 |-----------|---------|--------------|---------|
-| Builders | 12 | 2.679 | ~6.7k |
-| Fixers | 7 | 516 | ~1.3k |
-| **Total** | **19** | **3.195** | **~8k** |
+| Builders | 14 | ~2.970 | ~7.4k |
+| Fixers | 7 | ~520 | ~1.3k |
+| Quality | 1 | ~130 | ~330 |
+| **Total** | **22** | **~3.620** | **~9k** |
 
 > **Nota:** Estimativa baseada em ~2.5 tokens/linha de markdown/código.
 
@@ -429,7 +432,9 @@ Precisa criar algo?
 ├── Eventos/real-time            → event-builder
 ├── Autenticação JWT             → jwt-auth-builder
 ├── Sistema de permissões        → acl-builder
-└── Auditoria de models          → audit-builder
+├── Auditoria de models          → audit-builder
+├── AI Agents (laravel/ai)       → ai-agent-builder
+└── MCP Servers (laravel/mcp)    → mcp-server-builder
 
 Precisa auditar/corrigir?
 │
@@ -459,15 +464,16 @@ Plugin Vue/Nuxt                  → plugin-builder
 
 ### Back-end (Laravel)
 
-- **PHP:** 8.3.27
-- **Laravel:** v12
+- **PHP:** 8.3+
+- **Laravel:** v13
 - **Auth:** JWT (tymon/jwt-auth) ou Sanctum v4
 - **Queue:** Horizon v5
 - **Real-time:** Reverb v1
 - **Performance:** Octane v2
 - **Code Style:** Pint v1
-- **Testing:** PHPUnit v11
+- **Testing:** PHPUnit ^12 / Pest ^4
 - **Auditing:** owen-it/laravel-auditing
+- **AI:** laravel/ai (AI SDK), laravel/mcp (MCP servers)
 
 ### Front-end (Nuxt)
 
@@ -487,14 +493,18 @@ Plugin Vue/Nuxt                  → plugin-builder
 | Convenção | Padrão |
 |-----------|--------|
 | Primary Key | UUID, coluna `uuid` |
+| Column Order | `id` (unsignedBigInteger) primeiro, `uuid` (PK) segundo |
+| Auto Increment | `DB::statement('ALTER TABLE x MODIFY id ... AUTO_INCREMENT UNIQUE')` |
 | Foreign Keys | `{entity}_uuid` |
-| Traits do Model | HasFactory, HasUuids, SoftDeletes, AutoIncrementId, Auditable |
+| Model Config | PHP Attributes: `#[Table(key: 'uuid', ...)]`, `#[Fillable([...])]` |
+| Traits do Model | HasFactory, HasUuids, SoftDeletes |
+| Folder Structure | Domain-based: `Controllers/{Domain}/`, `Models/{Domain}/`, etc. |
 | Services | Estendem `App\Services\Service` |
 | Repositories | Estendem `App\Repositories\Repository`, **nunca** usam `DB::` |
-| Controller | Sem lógica; só delega para Service |
-| Respostas | Sempre via Resource |
+| Controller | DI constructor, sem lógica; só delega para Service |
+| Respostas | Sempre via Resource, Collection com `#[Collects]` |
+| Rotas | Versionadas em `routes/api/v1.php`, permission middleware per-route |
 | Documentação | PHPDoc em inglês, sem comentários inline |
-| Rotas | Agrupamento com `Route::controller()` |
 | Formatação | `vendor/bin/pint --dirty` |
 
 ---
@@ -525,6 +535,8 @@ whyl-subagents/
     │   ├── jwt-auth-builder.md
     │   ├── acl-builder.md
     │   ├── audit-builder.md
+    │   ├── ai-agent-builder.md
+    │   ├── mcp-server-builder.md
     │   ├── quality-checker.md
     │   ├── controller-fixer.md
     │   ├── service-fixer.md

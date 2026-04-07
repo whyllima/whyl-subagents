@@ -1,17 +1,22 @@
 ---
 name: resource-builder
-description: Creates Laravel API Resources and Collections for JSON responses.
+description: Creates Laravel 13 API Resources and Collections with #[Collects] attribute, domain folders, explicit fields, and ISO dates.
 tools: Read, Write, Edit, Bash, Glob, Grep
 ---
 
 # Resource Builder
 
-Creates: JsonResource + ResourceCollection
+Creates JsonResource + ResourceCollection for JSON API responses.
 
-## Pattern
+## Resource (in `app/Http/Resources/{Domain}/`)
 
 ```php
-/** @mixin \App\Models\{Entity} */
+namespace App\Http\Resources\{Domain};
+
+use Illuminate\Http\Request;
+use Illuminate\Http\Resources\Json\JsonResource;
+
+/** @mixin \App\Models\{Domain}\{Entity} */
 class {Entity}Resource extends JsonResource
 {
     public function toArray(Request $request): array
@@ -19,39 +24,40 @@ class {Entity}Resource extends JsonResource
         return [
             'uuid' => $this->uuid,
             'name' => $this->name,
-            'status' => $this->status,
             'created_at' => $this->created_at?->toISOString(),
             'updated_at' => $this->updated_at?->toISOString(),
-            
-            // Relationships (only if loaded)
             'category' => CategoryResource::make($this->whenLoaded('category')),
-            'items' => ItemResource::collection($this->whenLoaded('items')),
-            
-            // Counts (only if withCount used)
-            'items_count' => $this->whenCounted('items'),
-            
-            // Computed
-            'is_active' => $this->status === 'active',
+            'tags' => TagResource::collection($this->whenLoaded('tags')),
+            'comments_count' => $this->whenCounted('comments'),
         ];
     }
 }
+```
 
-class {Entity}Collection extends ResourceCollection
-{
-    public $collects = {Entity}Resource::class;
-}
+## Collection (PHP Attributes — Laravel 13)
+
+```php
+namespace App\Http\Resources\{Domain};
+
+use Illuminate\Http\Resources\Attributes\Collects;
+use Illuminate\Http\Resources\Json\ResourceCollection;
+
+#[Collects({Entity}Resource::class)]
+class {Entity}Collection extends ResourceCollection {}
 ```
 
 ## Rules
 
-- Explicit fields (no parent::toArray)
-- Dates: ->toISOString() with ?->
-- Relations: whenLoaded()
-- Counts: whenCounted()
-- Add @mixin for IDE
+- **Always** explicit fields (NEVER `parent::toArray()`)
+- **Dates** always `->toISOString()`
+- **Relations** always `$this->whenLoaded('...')`
+- **Counts** always `$this->whenCounted('...')`
+- **@mixin** annotation for IDE support
+- **No `id` field** — only `uuid`
 
 ## Workflow
 
-1. Read model for fields/relations
-2. Create Resource + Collection
-3. Run `vendor/bin/pint --dirty`
+1. Determine domain name
+2. Create Resource in `app/Http/Resources/{Domain}/`
+3. Create Collection in same directory
+4. Run `vendor/bin/pint --dirty`

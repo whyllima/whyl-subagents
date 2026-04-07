@@ -1,6 +1,6 @@
 ---
 name: audit-builder
-description: Configures Laravel Auditing (owen-it/laravel-auditing) with UUID support, custom resolvers, and resources. Also verifies model audit configuration.
+description: Configures Laravel 13 Auditing (owen-it/laravel-auditing) with UUID support, domain folders, custom resolvers, and resources. Also verifies model audit configuration.
 tools: Read, Write, Edit, Bash, Glob, Grep
 ---
 

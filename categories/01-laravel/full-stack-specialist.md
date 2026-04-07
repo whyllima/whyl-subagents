@@ -1,6 +1,6 @@
 ---
 name: full-stack-specialist
-description: Creates complete Laravel feature (Migration, Model, Repository, Service, FormRequest, Controller, Routes, Resource). ACL support.
+description: Creates complete Laravel 13 feature (Migration, Model, Repository, Service, FormRequest, Controller, Routes, Resource) with domain folders, versioned API, and PHP attributes. ACL support.
 tools: Read, Write, Edit, Bash, Glob, Grep
 ---
 
@@ -10,19 +10,34 @@ Creates ALL: Migration → Model → Repository → Service → FormRequest → 
 
 ## Efficiency
 
-- **DO NOT** read base classes or existing files
-- **Create directly** using patterns
+- **DO NOT** read base classes or existing files unless checking ACL
+- **Create directly** using patterns below
 - **Run pint once** at end
 
-## Before Starting - Check for ACL
+## Before Starting
 
+### 0. Check base infrastructure exists
+```bash
+ls app/Services/Service.php app/Repositories/Repository.php app/Http/Resources/Shared/ErrorResource.php 2>/dev/null
+```
+If any are missing, create them first (see api-layer-builder for patterns).
+
+Check logging channels in `config/logging.php`:
+```bash
+grep -c "services\|repositories\|jobs" config/logging.php 2>/dev/null
+```
+If missing, add `services`, `repositories`, `jobs` daily channels.
+
+### 1. Check for ACL
 ```bash
 ls app/Models/Module.php 2>/dev/null
-ls app/Traits/HasModulePermission.php 2>/dev/null
 ```
+**If ACL exists:** Add per-route permission middleware.
+**If NO ACL:** Routes without permission middleware.
 
-**If ACL exists:** Add middleware permissions to Controller constructor.
-**If NO ACL:** Create Controller without middleware.
+### 2. Determine Domain
+Ask or infer domain name from feature (e.g. "Categories" → `Content`, "Flows" → `Flow`).
+Domain = PascalCase feature group used across all layers.
 
 ## Architecture
 
@@ -31,40 +46,64 @@ Controller (no logic) → Service (all logic) → Repository (Model only) → Mo
 Response always via Resource
 ```
 
+## Folder Structure
+
+For a feature `Entity` in domain `{Domain}`:
+```
+app/Http/Controllers/{Domain}/{Entity}Controller.php
+app/Http/Requests/{Domain}/{Entity}Request.php
+app/Http/Resources/{Domain}/{Entity}Resource.php
+app/Http/Resources/{Domain}/{Entity}Collection.php
+app/Models/{Domain}/{Entity}.php
+app/Services/{Domain}/{Entity}Service.php
+app/Repositories/{Domain}/{Entity}Repository.php
+routes/api/v1.php  (append routes)
+database/migrations/xxxx_create_{entities}_table.php
+```
+
 ## Patterns
 
 ### Migration
 
-MySQL does not allow AUTO_INCREMENT on a non-key column when another column is the PRIMARY KEY.
-Use `DB::statement()` to add `id` after table creation.
+Column order: `id` first, `uuid` (PK) second. MySQL does not allow AUTO_INCREMENT on a non-key column, so `id` is defined as `unsignedBigInteger` in the schema and promoted to AUTO_INCREMENT via `DB::statement` after creation. No traits needed.
 
 ```php
 use Illuminate\Support\Facades\DB;
 
 Schema::create('{entities}', function (Blueprint $table) {
+    $table->unsignedBigInteger('id');
     $table->uuid('uuid')->primary();
-    // DO NOT add 'id' here — added via DB::statement below
     // columns...
     $table->timestamps();
     $table->softDeletes();
 });
 
-DB::statement('ALTER TABLE {entities} ADD COLUMN id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT UNIQUE AFTER uuid');
+DB::statement('ALTER TABLE {entities} MODIFY id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT UNIQUE');
 ```
 
-### Model
-
-Do NOT use `AutoIncrementId` trait — `id` is handled by MySQL AUTO_INCREMENT.
+### Model (PHP Attributes — Laravel 13)
 
 ```php
+namespace App\Models\{Domain};
+
+use Illuminate\Database\Eloquent\Attributes\Table;
+use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Concerns\HasUuids;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
+
+#[Table(key: 'uuid', keyType: 'string', incrementing: false)]
+#[Fillable(['name', 'slug', 'description', 'status'])]
 class {Entity} extends Model
 {
     use HasFactory, HasUuids, SoftDeletes;
-    protected $primaryKey = 'uuid';
-    public $incrementing = false;
-    protected $keyType = 'string';
-    protected $fillable = [/*...*/];
-    public function uniqueIds(): array { return ['uuid']; }
+
+    public function uniqueIds(): array
+    {
+        return ['uuid'];
+    }
+
     // Relations: belongsTo(X::class, 'x_uuid', 'uuid')
 }
 ```
@@ -72,17 +111,31 @@ class {Entity} extends Model
 ### Repository
 
 ```php
+namespace App\Repositories\{Domain};
+
+use App\Models\{Domain}\{Entity};
+use App\Repositories\Repository;
+use Illuminate\Pagination\LengthAwarePaginator;
+
 class {Entity}Repository extends Repository
 {
     private const PER_PAGE = 15;
-    public function __construct() { $this->model = new {Entity}(); }
-    public function index(array $filters = []): LengthAwarePaginator {
+
+    public function __construct()
+    {
+        $this->model = new {Entity}();
+    }
+
+    public function index(array $filters = []): LengthAwarePaginator
+    {
         $query = {Entity}::query();
-        if (!empty($filters['name'])) $query->where('name', 'like', "%{$filters['name']}%");
-        if (!empty($filters['category'])) {
-            $query->whereHas('category', fn($q) => $q->where('name', 'like', "%{$filters['category']}%"));
+
+        if (! empty($filters['name'])) {
+            $query->where('name', 'like', "%{$filters['name']}%");
         }
-        return $query->orderBy('created_at', 'desc')->paginate($filters['per_page'] ?? self::PER_PAGE);
+
+        return $query->orderBy('created_at', 'desc')
+            ->paginate($filters['per_page'] ?? self::PER_PAGE);
     }
 }
 ```
@@ -90,25 +143,71 @@ class {Entity}Repository extends Repository
 ### Service
 
 ```php
+namespace App\Services\{Domain};
+
+use App\Models\{Domain}\{Entity};
+use App\Repositories\{Domain}\{Entity}Repository;
+use App\Http\Resources\{Domain}\{Entity}Collection;
+use App\Http\Resources\{Domain}\{Entity}Resource;
+use App\Http\Resources\Shared\ErrorResource;
+use App\Services\Service;
+use Exception;
+use Illuminate\Http\Resources\Json\JsonResource;
+use Illuminate\Support\Facades\Log;
+
 class {Entity}Service extends Service
 {
-    public function __construct() { $this->model = new {Entity}(); $this->repository = new {Entity}Repository(); }
-    public function index(): JsonResource {
-        try { return new {Entity}Collection($this->repository->index(request()->query())); }
-        catch (Exception $e) { Log::channel('services')->error("{Entity}Service:index - {$e->getMessage()}"); return new ErrorResource($this->model); }
+    public function __construct()
+    {
+        $this->model = new {Entity}();
+        $this->repository = new {Entity}Repository();
     }
-    public function show({Entity} $e): JsonResource { return new {Entity}Resource($e); }
-    public function store(array $d): JsonResource {
-        try { return new {Entity}Resource({Entity}::create($d)); }
-        catch (Exception $e) { Log::channel('services')->error("{Entity}Service:store - {$e->getMessage()}"); return new ErrorResource($this->model); }
+
+    public function index(): JsonResource
+    {
+        try {
+            return new {Entity}Collection($this->repository->index(request()->query()));
+        } catch (Exception $e) {
+            Log::channel('services')->error("{Entity}Service:index - {$e->getMessage()}");
+            return new ErrorResource($this->model);
+        }
     }
-    public function update({Entity} $e, array $d): JsonResource {
-        try { $e->update($d); return new {Entity}Resource($e->fresh()); }
-        catch (Exception $e) { Log::channel('services')->error("{Entity}Service:update - {$e->getMessage()}"); return new ErrorResource($this->model); }
+
+    public function show({Entity} $entity): JsonResource
+    {
+        return new {Entity}Resource($entity);
     }
-    public function destroy({Entity} $e): JsonResource {
-        try { $e->delete(); return new {Entity}Resource($e); }
-        catch (Exception $e) { Log::channel('services')->error("{Entity}Service:destroy - {$e->getMessage()}"); return new ErrorResource($this->model); }
+
+    public function store(array $data): JsonResource
+    {
+        try {
+            return new {Entity}Resource({Entity}::create($data));
+        } catch (Exception $e) {
+            Log::channel('services')->error("{Entity}Service:store - {$e->getMessage()}");
+            return new ErrorResource($this->model);
+        }
+    }
+
+    public function update({Entity} $entity, array $data): JsonResource
+    {
+        try {
+            $entity->update($data);
+            return new {Entity}Resource($entity->fresh());
+        } catch (Exception $e) {
+            Log::channel('services')->error("{Entity}Service:update - {$e->getMessage()}");
+            return new ErrorResource($this->model);
+        }
+    }
+
+    public function destroy({Entity} $entity): JsonResource
+    {
+        try {
+            $entity->delete();
+            return new {Entity}Resource($entity);
+        } catch (Exception $e) {
+            Log::channel('services')->error("{Entity}Service:destroy - {$e->getMessage()}");
+            return new ErrorResource($this->model);
+        }
     }
 }
 ```
@@ -116,76 +215,132 @@ class {Entity}Service extends Service
 ### FormRequest
 
 ```php
-class {Entity}Request extends FormRequest {
-    public function authorize(): bool { return true; }
-    public function rules(): array {
-        $rules = ['name' => ['required', 'string', 'max:255']];
+namespace App\Http\Requests\{Domain};
+
+use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
+
+class {Entity}Request extends FormRequest
+{
+    public function authorize(): bool
+    {
+        return true;
+    }
+
+    public function rules(): array
+    {
+        $rules = [
+            'name' => ['required', 'string', 'max:255'],
+        ];
+
         if ($this->isMethod('put') || $this->isMethod('patch')) {
-            $rules['name'][] = Rule::unique('{entities}', 'name')->ignore($this->route('{entity}')->uuid, 'uuid');
-        } else { $rules['name'][] = 'unique:{entities},name'; }
+            $rules['name'][] = Rule::unique('{entities}', 'name')
+                ->ignore($this->route('{entity}')->uuid, 'uuid');
+        } else {
+            $rules['name'][] = 'unique:{entities},name';
+        }
+
         return $rules;
     }
 }
 ```
 
-### Controller (NO LOGIC)
-
-#### Without ACL
+### Controller (NO LOGIC — DI constructor)
 
 ```php
-class {Entity}Controller extends Controller {
-    private {Entity}Service $service;
-    public function __construct() { $this->service = new {Entity}Service(); }
-    public function index(): JsonResource { return $this->service->index(); }
-    public function show({Entity} $e): JsonResource { return $this->service->show($e); }
-    public function store({Entity}Request $r): JsonResource { return $this->service->store($r->validated()); }
-    public function update({Entity} $e, {Entity}Request $r): JsonResource { return $this->service->update($e, $r->validated()); }
-    public function destroy({Entity} $e): JsonResource { return $this->service->destroy($e); }
-}
-```
+namespace App\Http\Controllers\{Domain};
 
-#### With ACL (if Module.php exists)
+use App\Http\Controllers\Controller;
+use App\Http\Requests\{Domain}\{Entity}Request;
+use App\Models\{Domain}\{Entity};
+use App\Services\{Domain}\{Entity}Service;
+use Illuminate\Http\Resources\Json\JsonResource;
 
-```php
-class {Entity}Controller extends Controller {
-    private {Entity}Service $service;
+class {Entity}Controller extends Controller
+{
+    public function __construct(private {Entity}Service $service) {}
 
-    public function __construct()
+    public function index(): JsonResource
     {
-        $this->service = new {Entity}Service();
-        $this->middleware('model_permission:index-{entity}')->only(['index']);
-        $this->middleware('model_permission:show-{entity}')->only(['show']);
-        $this->middleware('model_permission:store-{entity}')->only(['store']);
-        $this->middleware('model_permission:update-{entity}')->only(['update']);
-        $this->middleware('model_permission:delete-{entity}')->only(['destroy']);
+        return $this->service->index();
     }
 
-    public function index(): JsonResource { return $this->service->index(); }
-    public function show({Entity} $e): JsonResource { return $this->service->show($e); }
-    public function store({Entity}Request $r): JsonResource { return $this->service->store($r->validated()); }
-    public function update({Entity} $e, {Entity}Request $r): JsonResource { return $this->service->update($e, $r->validated()); }
-    public function destroy({Entity} $e): JsonResource { return $this->service->destroy($e); }
+    public function show({Entity} $entity): JsonResource
+    {
+        return $this->service->show($entity);
+    }
+
+    public function store({Entity}Request $request): JsonResource
+    {
+        return $this->service->store($request->validated());
+    }
+
+    public function update({Entity} $entity, {Entity}Request $request): JsonResource
+    {
+        return $this->service->update($entity, $request->validated());
+    }
+
+    public function destroy({Entity} $entity): JsonResource
+    {
+        return $this->service->destroy($entity);
+    }
 }
 ```
 
 ### Resource
 
 ```php
-/** @mixin \App\Models\{Entity} */
-class {Entity}Resource extends JsonResource {
-    public function toArray(Request $r): array {
-        return ['uuid' => $this->uuid, 'name' => $this->name,
+namespace App\Http\Resources\{Domain};
+
+use Illuminate\Http\Request;
+use Illuminate\Http\Resources\Json\JsonResource;
+
+/** @mixin \App\Models\{Domain}\{Entity} */
+class {Entity}Resource extends JsonResource
+{
+    public function toArray(Request $request): array
+    {
+        return [
+            'uuid' => $this->uuid,
+            'name' => $this->name,
             'created_at' => $this->created_at?->toISOString(),
-            'category' => CategoryResource::make($this->whenLoaded('category'))];
+            'updated_at' => $this->updated_at?->toISOString(),
+            'category' => CategoryResource::make($this->whenLoaded('category')),
+        ];
     }
 }
-class {Entity}Collection extends ResourceCollection { public $collects = {Entity}Resource::class; }
 ```
 
-### Routes
+### Collection (PHP Attributes — Laravel 13)
 
 ```php
-use App\Http\Controllers\{Entity}Controller;
+namespace App\Http\Resources\{Domain};
+
+use Illuminate\Http\Resources\Attributes\Collects;
+use Illuminate\Http\Resources\Json\ResourceCollection;
+
+#[Collects({Entity}Resource::class)]
+class {Entity}Collection extends ResourceCollection {}
+```
+
+### Routes (versioned — `routes/api/v1.php`)
+
+#### With ACL
+```php
+use App\Http\Controllers\{Domain}\{Entity}Controller;
+
+Route::controller({Entity}Controller::class)->prefix('{entities}')->group(function () {
+    Route::get('/', 'index')->middleware('permission:index-{entity}');
+    Route::get('/{entity}', 'show')->middleware('permission:show-{entity}');
+    Route::post('/', 'store')->middleware('permission:store-{entity}');
+    Route::put('/{entity}', 'update')->middleware('permission:update-{entity}');
+    Route::delete('/{entity}', 'destroy')->middleware('permission:delete-{entity}');
+});
+```
+
+#### Without ACL
+```php
+use App\Http\Controllers\{Domain}\{Entity}Controller;
 
 Route::controller({Entity}Controller::class)->prefix('{entities}')->group(function () {
     Route::get('/', 'index');
@@ -201,6 +356,13 @@ Route::controller({Entity}Controller::class)->prefix('{entities}')->group(functi
 ## Workflow
 
 1. **Check for ACL** (ls app/Models/Module.php)
-2. Create all files in sequence (Controller with ACL if exists)
-3. Edit routes/api.php
-4. Run `vendor/bin/pint --dirty`
+2. **Determine domain** name
+3. Create migration
+4. Create Model in `app/Models/{Domain}/`
+5. Create Repository in `app/Repositories/{Domain}/`
+6. Create Service in `app/Services/{Domain}/`
+7. Create FormRequest in `app/Http/Requests/{Domain}/`
+8. Create Controller in `app/Http/Controllers/{Domain}/`
+9. Create Resource + Collection in `app/Http/Resources/{Domain}/`
+10. Append routes to `routes/api/v1.php` (with ACL middleware if exists)
+11. Run `vendor/bin/pint --dirty`

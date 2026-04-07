@@ -9,23 +9,25 @@ Update: `cd whyl-subagents && git pull`
 | full-stack-specialist | full-stack-specialist.md | Feature completa do zero |
 | model-builder | model-builder.md | Só estrutura de dados |
 | api-layer-builder | api-layer-builder.md | API para model existente |
-| endpoint-builder | endpoint-builder.md | Só rotas |
-| test-builder | test-builder.md | Testes PHPUnit |
-| job-builder | job-builder.md | Jobs em fila |
+| endpoint-builder | endpoint-builder.md | Só rotas (versionadas) |
+| test-builder | test-builder.md | Testes PHPUnit 12 |
+| job-builder | job-builder.md | Jobs com PHP attributes |
 | resource-builder | resource-builder.md | Transformação JSON |
 | seeder-builder | seeder-builder.md | Dados de teste/dev |
 | event-builder | event-builder.md | Eventos e broadcasting |
 | jwt-auth-builder | jwt-auth-builder.md | Autenticação JWT |
-| acl-builder | acl-builder.md | Sistema ACL modular |
+| acl-builder | acl-builder.md | ACL modular config-driven |
 | audit-builder | audit-builder.md | Auditoria de models |
-| horizon-builder | horizon-builder.md | Redis Horizon config |
+| horizon-builder | horizon-builder.md | Redis Horizon + Queue::route() |
+| ai-agent-builder | ai-agent-builder.md | AI Agents (laravel/ai) |
+| mcp-server-builder | mcp-server-builder.md | MCP Servers (laravel/mcp) |
 | quality-checker | quality-checker.md | Audita código |
 | controller-fixer | controller-fixer.md | Remove lógica do controller |
 | service-fixer | service-fixer.md | Garante Repository e Resources |
 | repository-fixer | repository-fixer.md | Converte DB:: para Model |
-| model-fixer | model-fixer.md | Traits, UUID, relacionamentos |
+| model-fixer | model-fixer.md | PHP attributes, UUID, domain folders |
 | formrequest-fixer | formrequest-fixer.md | Validação create/update |
-| resource-fixer | resource-fixer.md | Campos explícitos, datas ISO |
+| resource-fixer | resource-fixer.md | #[Collects], datas ISO |
 
 ## 02 - Front-end / Nuxt (categories/02-front-end/)
 | Agent | File | Use when |
@@ -39,6 +41,8 @@ Update: `cd whyl-subagents && git pull`
 | i18n-manager | i18n-manager.md | Locales e traduções |
 | layout-builder | layout-builder.md | Layouts, sidebar, dark mode |
 | plugin-builder | plugin-builder.md | Plugins Nuxt |
+| middleware-builder | middleware-builder.md | Auth guards, redirects, SSR middleware |
+| testing-builder | testing-builder.md | Vitest + Vue Test Utils |
 | quality-checker | quality-checker.md | Audita código frontend |
 
 ## 03 - Business & Product (categories/03-business-product/)

@@ -1,75 +1,96 @@
 ---
 name: model-builder
-description: Creates Laravel migrations and models with UUID, traits, and relationships.
+description: Creates Laravel 13 migrations and models with UUID, PHP attributes (#[Table], #[Fillable]), domain folders, and relationships.
 tools: Read, Write, Edit, Bash, Glob, Grep
 ---
 
 # Model Builder
 
-Creates: Migration + Model (no API layer)
+Creates Migration + Model. Use when only data structure is needed, no API layer.
 
-## Patterns
+## Before Starting
 
-### Migration
+Determine domain name from feature (e.g. "Tags" in "Content" domain → `app/Models/Content/Tag.php`).
 
-MySQL does not allow AUTO_INCREMENT on a non-key column when another column is the PRIMARY KEY.
-Use `DB::statement()` to add `id` as `BIGINT UNSIGNED AUTO_INCREMENT UNIQUE` after creating the table.
+## Migration
+
+Column order: `id` first, `uuid` (PK) second. MySQL does not allow AUTO_INCREMENT on a non-key column, so `id` is defined as `unsignedBigInteger` in the schema and promoted to AUTO_INCREMENT via `DB::statement` after creation. No traits needed.
 
 ```php
 use Illuminate\Support\Facades\DB;
 
 Schema::create('{entities}', function (Blueprint $table) {
+    $table->unsignedBigInteger('id');
     $table->uuid('uuid')->primary();
-    // DO NOT add 'id' here — added via DB::statement below
-    $table->string('name');
     // columns...
-    $table->foreignUuid('category_uuid')->nullable()->constrained('categories', 'uuid');
     $table->timestamps();
     $table->softDeletes();
-    $table->index(['status', 'created_at']);
 });
 
-// Add auto-increment id as UNIQUE key (MySQL requires AUTO_INCREMENT to be a key)
-DB::statement('ALTER TABLE {entities} ADD COLUMN id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT UNIQUE AFTER uuid');
+DB::statement('ALTER TABLE {entities} MODIFY id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT UNIQUE');
 ```
 
-### Pivot Table
-
-Pivot tables do NOT need the `id` column.
+## Model (PHP Attributes — Laravel 13)
 
 ```php
-Schema::create('{entity_relation}', function (Blueprint $table) {
-    $table->foreignUuid('entity_uuid')->constrained('entities', 'uuid')->cascadeOnDelete();
-    $table->foreignUuid('relation_uuid')->constrained('relations', 'uuid')->cascadeOnDelete();
-    $table->primary(['entity_uuid', 'relation_uuid']);
-    $table->timestamps();
-});
-```
+namespace App\Models\{Domain};
 
-### Model
+use Illuminate\Database\Eloquent\Attributes\Table;
+use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Concerns\HasUuids;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
-Do NOT use the `AutoIncrementId` trait — `id` is handled by MySQL AUTO_INCREMENT.
-
-```php
+#[Table(key: 'uuid', keyType: 'string', incrementing: false)]
+#[Fillable(['name', 'slug', 'description'])]
 class {Entity} extends Model
 {
     use HasFactory, HasUuids, SoftDeletes;
 
-    protected $primaryKey = 'uuid';
-    public $incrementing = false;
-    protected $keyType = 'string';
-    protected $fillable = ['name', 'category_uuid'];
+    public function uniqueIds(): array
+    {
+        return ['uuid'];
+    }
 
-    public function uniqueIds(): array { return ['uuid']; }
+    public function category(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    {
+        return $this->belongsTo(Category::class, 'category_uuid', 'uuid');
+    }
+}
+```
 
-    public function category() { return $this->belongsTo(Category::class, 'category_uuid', 'uuid'); }
-    public function items() { return $this->hasMany(Item::class, 'entity_uuid', 'uuid'); }
-    public function tags() { return $this->belongsToMany(Tag::class, 'entity_tag', 'entity_uuid', 'tag_uuid', 'uuid', 'uuid'); }
+## Relationship Patterns
+
+```php
+// BelongsTo (FK always {entity}_uuid)
+public function category(): BelongsTo
+{
+    return $this->belongsTo(Category::class, 'category_uuid', 'uuid');
+}
+
+// HasMany
+public function items(): HasMany
+{
+    return $this->hasMany(Item::class, 'entity_uuid', 'uuid');
+}
+
+// BelongsToMany
+public function tags(): BelongsToMany
+{
+    return $this->belongsToMany(Tag::class, 'entity_tag', 'entity_uuid', 'tag_uuid');
+}
+
+// MorphMany
+public function comments(): MorphMany
+{
+    return $this->morphMany(Comment::class, 'commentable');
 }
 ```
 
 ## Workflow
 
-1. Create migration (uuid PK + DB::statement for auto-increment id)
-2. Create model with traits and relationships (no AutoIncrementId)
-3. Run `vendor/bin/pint --dirty`
+1. Determine domain name
+2. Create migration in `database/migrations/`
+3. Create model in `app/Models/{Domain}/`
+4. Run `vendor/bin/pint --dirty`

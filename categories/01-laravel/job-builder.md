@@ -1,55 +1,97 @@
 ---
 name: job-builder
-description: Creates Laravel Jobs with ShouldQueue, retry logic, and Horizon tags.
+description: Creates Laravel 13 Jobs with PHP attributes (#[Tries], #[Timeout], #[Backoff], #[Queue]), ShouldQueue, domain folders, and Horizon tags.
 tools: Read, Write, Edit, Bash, Glob, Grep
 ---
 
 # Job Builder
 
-Creates: Queue Jobs with Horizon support
+Creates queued Jobs with PHP attributes for configuration.
 
-## Pattern
+## Job (PHP Attributes — Laravel 13)
+
+File: `app/Jobs/{Domain}/{JobName}.php`
 
 ```php
-class Process{Entity}Job implements ShouldQueue
+namespace App\Jobs\{Domain};
+
+use Illuminate\Bus\Queueable;
+use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Foundation\Bus\Dispatchable;
+use Illuminate\Queue\Attributes\Backoff;
+use Illuminate\Queue\Attributes\MaxExceptions;
+use Illuminate\Queue\Attributes\Queue;
+use Illuminate\Queue\Attributes\Timeout;
+use Illuminate\Queue\Attributes\Tries;
+use Illuminate\Queue\InteractsWithQueue;
+use Illuminate\Queue\SerializesModels;
+use Illuminate\Support\Facades\Log;
+
+#[Tries(3)]
+#[Timeout(120)]
+#[Backoff([10, 30, 60])]
+#[MaxExceptions(3)]
+#[Queue('default')]
+class {JobName} implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
-    public int $tries = 3;
-    public int $timeout = 120;
-    public int $backoff = 60;
-
-    public function __construct(public {Entity} ${entity}) {}
+    public function __construct(
+        public readonly string $entityUuid,
+    ) {}
 
     public function handle(): void
     {
-        try {
-            Log::channel('jobs')->info("Processing: {$this->{entity}->uuid}");
-            // Job logic...
-        } catch (Exception $e) {
-            Log::channel('jobs')->error("Failed: {$e->getMessage()}");
-            throw $e;
-        }
+        Log::channel('jobs')->info("{JobName} started for {$this->entityUuid}");
+
+        // Business logic here
+
+        Log::channel('jobs')->info("{JobName} completed for {$this->entityUuid}");
     }
 
-    public function failed(Exception $e): void
+    public function failed(\Throwable $exception): void
     {
-        Log::channel('jobs')->error("Job failed: {$this->{entity}->uuid}");
+        Log::channel('jobs')->error("{JobName} failed: {$exception->getMessage()}");
     }
 
-    public function tags(): array { return ['{entity}', "{entity}:{$this->{entity}->uuid}"]; }
+    public function tags(): array
+    {
+        return ['{domain}', 'entity:'.$this->entityUuid];
+    }
 }
 ```
 
-## Dispatch
+## Additional Attributes
 
 ```php
-Process{Entity}Job::dispatch($entity);
-Process{Entity}Job::dispatch($entity)->onQueue('processing');
-Process{Entity}Job::dispatch($entity)->delay(now()->addMinutes(5));
+use Illuminate\Queue\Attributes\Connection;
+use Illuminate\Queue\Attributes\UniqueFor;
+use Illuminate\Queue\Attributes\FailOnTimeout;
+
+#[Connection('redis')]
+#[UniqueFor(3600)]
+#[FailOnTimeout]
+```
+
+## Dispatching
+
+```php
+{JobName}::dispatch($entity->uuid);
+{JobName}::dispatch($entity->uuid)->delay(now()->addMinutes(5));
+{JobName}::dispatch($entity->uuid)->onQueue('high');
+```
+
+## Centralized Queue Routing (Laravel 13)
+
+Alternative to per-job `#[Queue]`: centralize in a ServiceProvider:
+
+```php
+// In AppServiceProvider::boot()
+Queue::route({JobName}::class, connection: 'redis', queue: 'high');
 ```
 
 ## Workflow
 
-1. Create job file
-2. Run `vendor/bin/pint --dirty`
+1. Determine domain name
+2. Create Job in `app/Jobs/{Domain}/`
+3. Run `vendor/bin/pint --dirty`

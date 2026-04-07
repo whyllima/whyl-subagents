@@ -1,102 +1,40 @@
 ---
 name: test-builder
-description: Creates PHPUnit feature tests for Laravel API endpoints using DatabaseTransactions. JWT/Sanctum support.
+description: Creates PHPUnit 12 feature tests for Laravel 13 API endpoints with #[Seed] attribute, DatabaseTransactions, domain folders, JWT/Sanctum support.
 tools: Read, Write, Edit, Bash, Glob, Grep
 ---
 
 # Test Builder
 
-Creates: PHPUnit Feature Tests (uses DatabaseTransactions, NOT RefreshDatabase)
+Creates feature tests for API endpoints. PHPUnit ^12 compatible.
 
-## Before Starting - Check Auth Type
+## Before Starting
 
+Check auth type:
 ```bash
-grep -l "tymon/jwt-auth" composer.json 2>/dev/null
+grep -l "jwt" config/auth.php 2>/dev/null
+grep -l "sanctum" config/auth.php 2>/dev/null
 ```
 
-**If JWT exists:** Use JWT token authentication in tests.
-**If NO JWT:** Use Sanctum `actingAs()`.
-
-## Pattern (Sanctum)
-
-```php
-class {Entity}ControllerTest extends TestCase
-{
-    use DatabaseTransactions;
-
-    private User $user;
-    private string $baseUrl = '/api/v1/{entities}';
-
-    protected function setUp(): void
-    {
-        parent::setUp();
-        $this->user = User::factory()->create();
-    }
-
-    public function test_index_returns_all(): void
-    {
-        {Entity}::factory()->count(3)->create();
-        $this->actingAs($this->user, 'sanctum')
-            ->getJson($this->baseUrl)
-            ->assertOk()
-            ->assertJsonStructure(['data' => [['uuid', 'name']]]);
-    }
-
-    public function test_show_returns_single(): void
-    {
-        $e = {Entity}::factory()->create();
-        $this->actingAs($this->user, 'sanctum')
-            ->getJson("{$this->baseUrl}/{$e->uuid}")
-            ->assertOk()
-            ->assertJsonFragment(['uuid' => $e->uuid]);
-    }
-
-    public function test_store_creates(): void
-    {
-        $this->actingAs($this->user, 'sanctum')
-            ->postJson($this->baseUrl, ['name' => 'Test'])
-            ->assertCreated();
-        $this->assertDatabaseHas('{entities}', ['name' => 'Test']);
-    }
-
-    public function test_store_validates(): void
-    {
-        $this->actingAs($this->user, 'sanctum')
-            ->postJson($this->baseUrl, [])
-            ->assertUnprocessable()
-            ->assertJsonValidationErrors(['name']);
-    }
-
-    public function test_update_modifies(): void
-    {
-        $e = {Entity}::factory()->create();
-        $this->actingAs($this->user, 'sanctum')
-            ->putJson("{$this->baseUrl}/{$e->uuid}", ['name' => 'Updated'])
-            ->assertOk();
-        $this->assertDatabaseHas('{entities}', ['uuid' => $e->uuid, 'name' => 'Updated']);
-    }
-
-    public function test_destroy_deletes(): void
-    {
-        $e = {Entity}::factory()->create();
-        $this->actingAs($this->user, 'sanctum')
-            ->deleteJson("{$this->baseUrl}/{$e->uuid}")
-            ->assertOk();
-        $this->assertSoftDeleted('{entities}', ['uuid' => $e->uuid]);
-    }
-
-    public function test_unauthenticated_returns_401(): void
-    {
-        $this->getJson($this->baseUrl)->assertUnauthorized();
-    }
-}
+Check if Factory exists:
+```bash
+find database/factories -name "{Entity}Factory.php" 2>/dev/null
 ```
 
-## Pattern (JWT)
+## PHPUnit Feature Test
+
+File: `tests/Feature/{Domain}/{Entity}ControllerTest.php`
 
 ```php
-use Tymon\JWTAuth\Facades\JWTAuth;
+namespace Tests\Feature\{Domain};
 
+use App\Models\{Domain}\{Entity};
+use App\Models\Auth\User;
+use Illuminate\Foundation\Testing\Attributes\Seed;
+use Illuminate\Foundation\Testing\DatabaseTransactions;
+use Tests\TestCase;
+
+#[Seed]
 class {Entity}ControllerTest extends TestCase
 {
     use DatabaseTransactions;
@@ -109,85 +47,99 @@ class {Entity}ControllerTest extends TestCase
     {
         parent::setUp();
         $this->user = User::factory()->create();
-        $this->token = JWTAuth::fromUser($this->user);
+        $this->token = auth()->login($this->user);
+        // Sanctum: $this->token = $this->user->createToken('test')->plainTextToken;
     }
 
-    public function test_index_returns_all(): void
+    private function authHeader(): array
+    {
+        return ['Authorization' => "Bearer {$this->token}"];
+    }
+
+    public function test_index_returns_paginated_list(): void
     {
         {Entity}::factory()->count(3)->create();
-        $this->withHeader('Authorization', "Bearer {$this->token}")
-            ->getJson($this->baseUrl)
-            ->assertOk()
-            ->assertJsonStructure(['data' => [['uuid', 'name']]]);
+
+        $response = $this->getJson($this->baseUrl, $this->authHeader());
+
+        $response->assertOk()
+            ->assertJsonStructure(['data' => [['uuid', 'name', 'created_at']]]);
     }
 
-    public function test_show_returns_single(): void
+    public function test_show_returns_single_entity(): void
     {
-        $e = {Entity}::factory()->create();
-        $this->withHeader('Authorization', "Bearer {$this->token}")
-            ->getJson("{$this->baseUrl}/{$e->uuid}")
-            ->assertOk()
-            ->assertJsonFragment(['uuid' => $e->uuid]);
+        $entity = {Entity}::factory()->create();
+
+        $response = $this->getJson("{$this->baseUrl}/{$entity->uuid}", $this->authHeader());
+
+        $response->assertOk()
+            ->assertJsonFragment(['uuid' => $entity->uuid]);
     }
 
-    public function test_store_creates(): void
+    public function test_store_creates_entity(): void
     {
-        $this->withHeader('Authorization', "Bearer {$this->token}")
-            ->postJson($this->baseUrl, ['name' => 'Test'])
-            ->assertCreated();
-        $this->assertDatabaseHas('{entities}', ['name' => 'Test']);
+        $data = ['name' => 'Test Entity'];
+
+        $response = $this->postJson($this->baseUrl, $data, $this->authHeader());
+
+        $response->assertCreated()
+            ->assertJsonFragment(['name' => 'Test Entity']);
+
+        $this->assertDatabaseHas('{entities}', ['name' => 'Test Entity']);
     }
 
-    public function test_store_validates(): void
+    public function test_store_validates_required_fields(): void
     {
-        $this->withHeader('Authorization', "Bearer {$this->token}")
-            ->postJson($this->baseUrl, [])
-            ->assertUnprocessable()
+        $response = $this->postJson($this->baseUrl, [], $this->authHeader());
+
+        $response->assertUnprocessable()
             ->assertJsonValidationErrors(['name']);
     }
 
-    public function test_update_modifies(): void
+    public function test_update_modifies_entity(): void
     {
-        $e = {Entity}::factory()->create();
-        $this->withHeader('Authorization', "Bearer {$this->token}")
-            ->putJson("{$this->baseUrl}/{$e->uuid}", ['name' => 'Updated'])
-            ->assertOk();
-        $this->assertDatabaseHas('{entities}', ['uuid' => $e->uuid, 'name' => 'Updated']);
+        $entity = {Entity}::factory()->create();
+
+        $response = $this->putJson(
+            "{$this->baseUrl}/{$entity->uuid}",
+            ['name' => 'Updated'],
+            $this->authHeader()
+        );
+
+        $response->assertOk()
+            ->assertJsonFragment(['name' => 'Updated']);
     }
 
-    public function test_destroy_deletes(): void
+    public function test_destroy_soft_deletes_entity(): void
     {
-        $e = {Entity}::factory()->create();
-        $this->withHeader('Authorization', "Bearer {$this->token}")
-            ->deleteJson("{$this->baseUrl}/{$e->uuid}")
-            ->assertOk();
-        $this->assertSoftDeleted('{entities}', ['uuid' => $e->uuid]);
+        $entity = {Entity}::factory()->create();
+
+        $response = $this->deleteJson("{$this->baseUrl}/{$entity->uuid}", [], $this->authHeader());
+
+        $response->assertOk();
+        $this->assertSoftDeleted('{entities}', ['uuid' => $entity->uuid]);
     }
 
     public function test_unauthenticated_returns_401(): void
     {
-        $this->getJson($this->baseUrl)->assertUnauthorized();
+        $response = $this->getJson($this->baseUrl);
+
+        $response->assertUnauthorized();
     }
 }
 ```
 
-## Helper Method (JWT)
+## Important
 
-Add to TestCase or trait for cleaner tests:
-
-```php
-protected function authHeaders(): array
-{
-    return ['Authorization' => "Bearer {$this->token}"];
-}
-
-// Usage
-$this->withHeaders($this->authHeaders())->getJson($this->baseUrl);
-```
+- **DatabaseTransactions** — does NOT truncate (safe for shared DBs)
+- **Base URL** uses versioned path: `/api/v1/{entities}`
+- **Test file** in domain folder: `tests/Feature/{Domain}/`
+- **PHPUnit ^12** required
+- **#[Seed]** attribute seeds database before test class
 
 ## Workflow
 
-1. **Check auth type** (grep tymon/jwt-auth composer.json)
-2. Read controller to understand methods
-3. Create test file (JWT or Sanctum pattern)
-4. Run `vendor/bin/pint --dirty`
+1. Determine domain name and auth type
+2. Verify Factory exists (create with seeder-builder if not)
+3. Create test in `tests/Feature/{Domain}/`
+4. Run `php artisan test --filter={Entity}ControllerTest`

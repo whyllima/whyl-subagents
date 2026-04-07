@@ -1,23 +1,22 @@
 ---
 name: acl-builder
-description: Configures modular ACL system with Module-based permissions (User → Role → Module → Permission) including middleware, traits, models, migrations, config, and seeders. UUID support.
+description: Configures modular ACL system with config-driven permissions matrix (User → Role → Module → Permission), privilege escalation prevention, domain folders, and seeders. UUID support.
 tools: Read, Write, Edit, Bash, Glob, Grep
 ---
 
 # ACL Builder
 
-Configures complete ACL system with three-level architecture: `User → Role → Module → Permission`.
+Configures complete ACL system with config-driven matrix and privilege escalation prevention.
 
-## CRITICAL RULES — Read these FIRST
+## CRITICAL RULES — Read FIRST
 
-1. **ALWAYS use shell_exec to run `composer require` FIRST** — before creating any files
-2. **ALWAYS use shell_exec to run `php artisan migrate` at the END**
-3. **ALWAYS use file_read to READ existing files before modifying them** — NEVER blindly overwrite
-4. **When modifying User.php or bootstrap/app.php**: read the FULL file first, then write back the COMPLETE file with your additions merged in. NEVER truncate with `// ...`
-5. **The `{Entity}Controller` section below is a DOCUMENTATION EXAMPLE ONLY** — do NOT create a file called `{Entity}Controller.php`. Instead, show the user how to apply middleware to their OWN controllers.
-6. **Create ALL migration files** — the system will NOT work without migrations
-7. **Create the PermissionsSeeder** — include all default permissions and modules
-8. **Run `vendor/bin/pint --dirty` at the end** to fix code style
+1. **ALWAYS run `composer require` FIRST** — before creating any files
+2. **ALWAYS run `php artisan migrate` at the END**
+3. **ALWAYS read existing files before modifying them** — NEVER blindly overwrite
+4. **When modifying User.php or bootstrap/app.php**: read FULL file, merge additions, write COMPLETE file
+5. **Controller examples are PATTERNS** — adapt to actual entity names
+6. **Create ALL migration files** — system will NOT work without them
+7. **Run `vendor/bin/pint --dirty` at the end**
 
 ## Architecture
 
@@ -30,11 +29,67 @@ Configures complete ACL system with three-level architecture: `User → Role →
                     role_modules_permissions (pivot)
 ```
 
-## Permission Format
+**Permission Format:** `{action}-{module}` (e.g. `show-rule`, `index-user`, `store-flow`)
 
-```
-{action}-{module}
-Examples: show-rule, index-user, store-entity, delete-campaign
+## ACL Config (`config/acl.php`)
+
+Central config that drives the entire permission matrix:
+
+```php
+<?php
+
+return [
+    'permissions' => [
+        'show',
+        'index',
+        'store',
+        'update',
+        'delete',
+        'export',
+        'print',
+    ],
+
+    'modules' => [
+        'user',
+        'role',
+        'module',
+        'permission',
+        // Add feature modules here...
+    ],
+
+    /*
+    | Roles: selective module-permission access.
+    | - super_admin: bypasses via Gate::before, no explicit assignments
+    | - admin: no modules/permissions key = gets ALL modules x ALL permissions
+    | - Custom roles: specify modules[] and permissions[] for selective access
+    */
+    'roles' => [
+        'super_admin' => [
+            'display_name' => 'Super Admin',
+            'description' => 'Full access, bypasses all permission checks via Gate::before',
+        ],
+        'admin' => [
+            'display_name' => 'Admin',
+            'description' => 'Full CRUD on all modules',
+        ],
+        'manager' => [
+            'display_name' => 'Manager',
+            'description' => 'Manages specific modules with limited actions',
+            'modules' => ['user', 'role'],
+            'permissions' => ['show', 'index', 'store', 'update', 'delete'],
+        ],
+        'viewer' => [
+            'display_name' => 'Viewer',
+            'description' => 'Read-only access to specific modules',
+            'modules' => ['user'],
+            'permissions' => ['show', 'index'],
+        ],
+    ],
+
+    'cache' => [
+        'ttl' => 3600,
+    ],
+];
 ```
 
 ## Install
@@ -86,606 +141,309 @@ return [
 
 ### Migration 1: Permission Tables (UUID)
 
-```php
-use Illuminate\Database\Migrations\Migration;
-use Illuminate\Database\Schema\Blueprint;
-use Illuminate\Support\Facades\Schema;
-
-return new class extends Migration
-{
-    public function up(): void
-    {
-        $tableNames = config('permission.table_names');
-        $columnNames = config('permission.column_names');
-        $pivotRole = $columnNames['role_pivot_key'] ?? 'role_id';
-        $pivotPermission = $columnNames['permission_pivot_key'] ?? 'permission_id';
-
-        Schema::create($tableNames['permissions'], function (Blueprint $table) {
-            $table->uuid('uuid')->primary()->unique();
-            $table->unsignedBigInteger('id');
-            $table->string('name');
-            $table->string('guard_name');
-            $table->timestamps();
-            $table->softDeletes();
-            $table->unique(['name', 'guard_name']);
-        });
-
-        Schema::create($tableNames['roles'], function (Blueprint $table) {
-            $table->uuid('uuid')->primary()->unique();
-            $table->unsignedBigInteger('id');
-            $table->string('name');
-            $table->string('guard_name');
-            $table->uuid('companie_id')->nullable();
-            $table->timestamps();
-            $table->softDeletes();
-            $table->unique(['name', 'guard_name']);
-        });
-
-        Schema::create($tableNames['model_has_permissions'], function (Blueprint $table) use ($tableNames, $columnNames, $pivotPermission) {
-            $table->uuid('uuid')->unique();
-            $table->uuid($pivotPermission);
-            $table->string('model_type');
-            $table->uuid($columnNames['model_morph_key']);
-            $table->index([$columnNames['model_morph_key'], 'model_type'], 'model_has_permissions_model_id_model_type_index');
-            $table->foreign($pivotPermission)->references('uuid')->on($tableNames['permissions'])->onDelete('cascade');
-            $table->primary([$pivotPermission, $columnNames['model_morph_key'], 'model_type'], 'model_has_permissions_permission_model_type_primary');
-            $table->timestamps();
-        });
-
-        Schema::create($tableNames['model_has_roles'], function (Blueprint $table) use ($tableNames, $columnNames, $pivotRole) {
-            $table->uuid($pivotRole);
-            $table->string('model_type');
-            $table->uuid($columnNames['model_morph_key']);
-            $table->index([$columnNames['model_morph_key'], 'model_type'], 'model_has_roles_model_id_model_type_index');
-            $table->foreign($pivotRole)->references('uuid')->on($tableNames['roles'])->onDelete('cascade');
-            $table->primary([$pivotRole, $columnNames['model_morph_key'], 'model_type'], 'model_has_roles_role_model_type_primary');
-            $table->timestamps();
-        });
-
-        Schema::create($tableNames['role_has_permissions'], function (Blueprint $table) use ($tableNames, $pivotRole, $pivotPermission) {
-            $table->uuid($pivotPermission);
-            $table->uuid($pivotRole);
-            $table->foreign($pivotPermission)->references('uuid')->on($tableNames['permissions'])->onDelete('cascade');
-            $table->foreign($pivotRole)->references('uuid')->on($tableNames['roles'])->onDelete('cascade');
-            $table->primary([$pivotPermission, $pivotRole], 'role_has_permissions_permission_id_role_id_primary');
-            $table->timestamps();
-        });
-    }
-
-    public function down(): void
-    {
-        $tableNames = config('permission.table_names');
-        Schema::drop($tableNames['role_has_permissions']);
-        Schema::drop($tableNames['model_has_roles']);
-        Schema::drop($tableNames['model_has_permissions']);
-        Schema::drop($tableNames['roles']);
-        Schema::drop($tableNames['permissions']);
-    }
-};
-```
+Same as before — creates permissions, roles, model_has_permissions, model_has_roles, role_has_permissions tables with UUID primary keys.
 
 ### Migration 2: Modules Table
 
-```php
-use Illuminate\Database\Migrations\Migration;
-use Illuminate\Database\Schema\Blueprint;
-use Illuminate\Support\Facades\Schema;
+Same as before — creates modules and role_modules_permissions tables.
 
-return new class extends Migration
-{
-    public function up(): void
-    {
-        Schema::create('modules', function (Blueprint $table) {
-            $table->uuid('uuid')->primary()->unique();
-            $table->unsignedBigInteger('id');
-            $table->string('name');
-            $table->string('guard_name');
-            $table->unique(['name', 'guard_name']);
-            $table->timestamps();
-            $table->softDeletes();
-        });
+## Models (in `app/Models/`)
 
-        Schema::create('role_modules_permissions', function (Blueprint $table) {
-            $table->uuid('uuid');
-            $table->unsignedBigInteger('id');
-            $table->uuid('role_id');
-            $table->uuid('model_permission_id');
-            $table->foreign('role_id')->references('uuid')->on('roles')->onDelete('cascade');
-            $table->foreign('model_permission_id')->references('uuid')->on('model_has_permissions')->onDelete('cascade');
-            $table->primary(['uuid', 'role_id', 'model_permission_id']);
-            $table->timestamps();
-            $table->softDeletes();
-        });
-    }
-
-    public function down(): void
-    {
-        Schema::dropIfExists('role_modules_permissions');
-        Schema::dropIfExists('modules');
-    }
-};
-```
-
-## Models
-
-### Permission
-
-```php
-namespace App\Models;
-
-use Illuminate\Database\Eloquent\Concerns\HasUuids;
-use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\SoftDeletes;
-use Spatie\Permission\Models\Permission as SpatiePermission;
-
-class Permission extends SpatiePermission
-{
-    use HasFactory, HasUuids, SoftDeletes;
-
-    protected $primaryKey = 'uuid';
-    protected $hidden = ['guard_name', 'created_at', 'updated_at', 'deleted_at'];
-}
-```
-
-### Role
-
-```php
-namespace App\Models;
-
-use Illuminate\Database\Eloquent\Concerns\HasUuids;
-use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\SoftDeletes;
-use Spatie\Permission\Models\Role as SpatieRole;
-
-class Role extends SpatieRole
-{
-    use HasUuids, HasFactory, SoftDeletes;
-
-    protected $primaryKey = 'uuid';
-    protected $keyType = 'string';
-    protected $hidden = ['guard_name', 'created_at', 'updated_at', 'deleted_at'];
-
-    public function roleModulesPermission()
-    {
-        return $this->hasMany(RoleModulesPermission::class, 'role_id', 'uuid');
-    }
-
-    public function giveModelPermissionTo(string $module, string $permission)
-    {
-        $moduleModel = Module::findByName($module);
-        $permissionModel = Permission::findByName($permission);
-
-        if ($moduleModel && $permissionModel) {
-            if ($moduleModel->hasPermissionTo($permissionModel->name)) {
-                $modelHasPermission = ModelHasPermission::where([
-                    'permission_id' => $permissionModel->uuid,
-                    'model_type' => get_class($moduleModel),
-                    'model_uuid' => $moduleModel->uuid,
-                ])->first();
-
-                if ($modelHasPermission) {
-                    RoleModulesPermission::withTrashed()->updateOrCreate([
-                        'role_id' => $this->uuid,
-                        'model_permission_id' => $modelHasPermission->uuid,
-                    ])->restore();
-                    $this->load(['roleModulesPermission.modelHasPermission.module', 'roleModulesPermission.modelHasPermission.permission']);
-                }
-            }
-        }
-        return $this;
-    }
-
-    public function revokeModelPermissionTo($module, $permission)
-    {
-        $moduleModel = Module::findByName($module);
-        $permissionModel = Permission::findByName($permission);
-
-        if ($moduleModel && $permissionModel) {
-            if ($moduleModel->hasPermissionTo($permissionModel->name)) {
-                $modelHasPermission = ModelHasPermission::where([
-                    'permission_id' => $permissionModel->uuid,
-                    'model_type' => get_class($moduleModel),
-                    'model_uuid' => $moduleModel->uuid,
-                ])->first();
-
-                if ($modelHasPermission) {
-                    RoleModulesPermission::where([
-                        'role_id' => $this->uuid,
-                        'model_permission_id' => $modelHasPermission->uuid,
-                    ])->delete();
-                    $this->load(['roleModulesPermission.modelHasPermission.module', 'roleModulesPermission.modelHasPermission.permission']);
-                }
-            }
-        }
-        return $this;
-    }
-}
-```
-
-### Module
-
-```php
-namespace App\Models;
-
-use App\Traits\HasGuard;
-use App\Traits\HasNameLookup;
-use Spatie\Permission\Traits\HasRoles;
-use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\SoftDeletes;
-use Illuminate\Database\Eloquent\Concerns\HasUuids;
-use Illuminate\Database\Eloquent\Factories\HasFactory;
-
-class Module extends Model
-{
-    use HasFactory, HasUuids, HasRoles, HasNameLookup, SoftDeletes, HasGuard;
-
-    protected $primaryKey = 'uuid';
-    protected $keyType = 'string';
-    protected $fillable = ['name', 'guard_name'];
-    protected $hidden = ['guard_name', 'created_at', 'updated_at', 'deleted_at'];
-
-    public function givePermissionTo(...$permissions)
-    {
-        foreach ($permissions as $permission) {
-            if (!is_string($permission)) {
-                foreach ($permission as $p) {
-                    $this->assignPermission($p);
-                }
-            } else {
-                $this->assignPermission($permission);
-            }
-        }
-        return $this;
-    }
-
-    private function assignPermission(string $permissionName): void
-    {
-        $findPermission = Permission::where('name', $permissionName)->first();
-        if ($findPermission) {
-            ModelHasPermission::updateOrCreate([
-                'permission_id' => $findPermission->uuid,
-                'model_type' => get_class($this),
-                'model_uuid' => $this->uuid
-            ]);
-        }
-    }
-}
-```
-
-### ModelHasPermission
-
-```php
-namespace App\Models;
-
-use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Concerns\HasUuids;
-use Illuminate\Database\Eloquent\Factories\HasFactory;
-
-class ModelHasPermission extends Model
-{
-    use HasFactory, HasUuids;
-
-    protected $primaryKey = 'uuid';
-    protected $keyType = 'string';
-    protected $fillable = ['permission_id', 'model_type', 'model_uuid'];
-    protected $hidden = ['created_at', 'updated_at'];
-
-    public function module()
-    {
-        return $this->hasMany(Module::class, 'uuid', 'model_uuid');
-    }
-
-    public function permission()
-    {
-        return $this->hasMany(Permission::class, 'uuid', 'permission_id');
-    }
-}
-```
-
-### RoleModulesPermission
-
-```php
-namespace App\Models;
-
-use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\SoftDeletes;
-use Illuminate\Database\Eloquent\Concerns\HasUuids;
-use Illuminate\Database\Eloquent\Factories\HasFactory;
-
-class RoleModulesPermission extends Model
-{
-    use HasFactory, SoftDeletes, HasUuids;
-
-    protected $primaryKey = 'uuid';
-    protected $keyType = 'string';
-    protected $fillable = ['role_id', 'model_permission_id'];
-    protected $hidden = ['created_at', 'updated_at', 'deleted_at'];
-
-    public function role()
-    {
-        return $this->belongsTo(Role::class, 'role_id', 'uuid');
-    }
-
-    public function modelHasPermission()
-    {
-        return $this->belongsTo(ModelHasPermission::class, 'model_permission_id', 'uuid');
-    }
-}
-```
+Permission, Role, Module, ModelHasPermission, RoleModulesPermission — same patterns as before with UUID support. ACL models stay in root `app/Models/` (not domain folders).
 
 ## Traits
 
-### HasNameLookup
+HasNameLookup, HasGuard, HasModulePermission — same patterns as before.
+
+## Privilege Escalation Prevention
+
+**CRITICAL SECURITY — Must be in RoleRepository:**
+
+### RoleRepository (`app/Repositories/AccessControl/RoleRepository.php`)
 
 ```php
-namespace App\Traits;
+namespace App\Repositories\AccessControl;
 
-use Illuminate\Database\Eloquent\ModelNotFoundException;
-
-trait HasNameLookup
-{
-    public static function findByName(string $name)
-    {
-        $model = static::where('name', $name)->first();
-        if (!$model) {
-            throw new ModelNotFoundException($name);
-        }
-        return $model;
-    }
-}
-```
-
-### HasGuard
-
-```php
-namespace App\Traits;
-
-trait HasGuard
-{
-    protected static function bootHasGuard()
-    {
-        static::creating(function ($model) {
-            $guard = auth()->getDefaultDriver();
-            $model->guard_name = $guard;
-        });
-    }
-}
-```
-
-### HasModulePermission (User trait)
-
-```php
-namespace App\Traits;
-
-use Exception;
 use App\Models\Module;
 use App\Models\Permission;
-
-trait HasModulePermission
-{
-    public function hasAnyModule(...$models): bool
-    {
-        return collect($models)->flatten()->contains(fn($model) => Module::findByName($model)->exists());
-    }
-
-    public function hasModuleAndPermissionTo(array $modelsHasPermissions): bool
-    {
-        foreach ($modelsHasPermissions as $modelPermission) {
-            $modelPermission = explode('-', $modelPermission);
-            if (count($modelPermission) < 2) {
-                throw new Exception('Invalid model and permission format');
-            }
-            $model = Module::findByName($modelPermission[1]);
-            if (!$model->exists) {
-                continue;
-            }
-            $permission = Permission::findByName($modelPermission[0]);
-            if ($permission->exists() && $this->userHasPermissionForModule($model, $permission)) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    protected function userHasPermissionForModule($modelInstance, $permission): bool
-    {
-        foreach ($this->roles as $role) {
-            if ($this->roleHasPermissionForModule($role, $modelInstance, $permission)) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    private function roleHasPermissionForModule($role, $modelInstance, $permission): bool
-    {
-        foreach ($role->roleModulesPermission as $modulesPermission) {
-            if ($this->moduleHasPermission($modulesPermission->modelHasPermission, $modelInstance, $permission)) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    private function moduleHasPermission($modelHasPermission, $modelInstance, $permission): bool
-    {
-        foreach ($modelHasPermission->module as $module) {
-            if ($module->name === $modelInstance->name && $module->hasPermissionTo($permission->name)) {
-                return $this->permissionMatches($modelHasPermission->permission, $permission);
-            }
-        }
-        return false;
-    }
-
-    private function permissionMatches($modulePermissions, $permission): bool
-    {
-        foreach ($modulePermissions as $modulePermission) {
-            if ($modulePermission->name === $permission->name) {
-                return true;
-            }
-        }
-        return false;
-    }
-}
-```
-
-## Exception
-
-```php
-namespace App\Exceptions;
-
+use App\Models\Role;
+use App\Repositories\Repository;
 use Exception;
-use Illuminate\Http\Response;
-
-class NotLoggedInException extends Exception
-{
-    public static function notLoggedIn()
-    {
-        return new static('User is not logged in.', Response::HTTP_FORBIDDEN);
-    }
-}
-```
-
-## Middleware
-
-```php
-namespace App\Http\Middleware;
-
-use Closure;
-use Spatie\Permission\Guard;
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Gate;
-use App\Exceptions\NotLoggedInException;
-use Symfony\Component\HttpFoundation\Response;
-use Spatie\Permission\Exceptions\UnauthorizedException;
+use Illuminate\Support\Facades\Log;
 
-class ModelAndPermissionMiddleware
+class RoleRepository extends Repository
 {
-    public function handle(Request $request, Closure $next, $permission, $guard = null): Response
+    public function __construct()
     {
-        $user = $this->getUser($request, $guard);
-        if (!$user) {
-            throw NotLoggedInException::notLoggedIn();
-        }
-
-        if ($this->canSkipPermissionCheck($user, $permission)) {
-            return $next($request);
-        }
-
-        if (!$this->userHasRequiredPermissions($user, $permission)) {
-            throw UnauthorizedException::missingTraitHasRoles($user);
-        }
-        return $next($request);
+        $this->model = new Role();
     }
 
-    protected function getUser(Request $request, $guard)
+    /**
+     * List roles — EXCLUDES the user's own roles (prevents self-role assignment).
+     */
+    public function index(array $filters = [])
     {
-        $user = Auth::guard($guard)->user();
-        if (!$user && $request->bearerToken() && config('permission.use_passport_client_credentials')) {
-            $user = Guard::getPassportClient($guard);
+        try {
+            $user = Auth::user();
+            $perPage = $filters['per_page'] ?? 15;
+
+            if ($user->isSuperAdmin()) {
+                return Role::orderBy('created_at', 'desc')->paginate($perPage);
+            }
+
+            $userRoleIds = $user->roles->pluck('uuid')->toArray();
+
+            return Role::whereNotIn('uuid', $userRoleIds)
+                ->orderBy('created_at', 'desc')
+                ->paginate($perPage);
+        } catch (Exception $e) {
+            Log::channel('repositories')->error("RoleRepository:index - {$e->getMessage()}");
+            throw $e;
         }
-        return $user;
     }
 
-    protected function canSkipPermissionCheck($user, $permission): bool
+    /**
+     * Bulk assign — validates EACH permission against user's own permissions.
+     */
+    public function bulkAssignModulePermissions(Role $role, array $permissions)
     {
-        return Gate::forUser($user)->allows('before', $permission);
+        try {
+            $user = Auth::user();
+
+            foreach ($permissions as $permissionData) {
+                $module = Module::findByName($permissionData['module']);
+                $permission = Permission::findByName($permissionData['permission']);
+
+                if ($module->exists() && $permission->exists()) {
+                    if ($this->userCanAssignModulePermission($user, $module, $permission)) {
+                        $role->giveModelPermissionTo($module->name, $permission->name);
+                    }
+                }
+            }
+
+            return $role;
+        } catch (Exception $e) {
+            Log::channel('repositories')->error("RoleRepository:bulkAssign - {$e->getMessage()}");
+            throw $e;
+        }
     }
 
-    protected function userHasRequiredPermissions($user, $permissions): bool
+    /**
+     * Bulk unassign — validates EACH permission against user's own permissions.
+     */
+    public function bulkUnassignModulePermissions(Role $role, array $permissions)
     {
-        $modelsPermissions = is_array($permissions) ? $permissions : explode('|', $permissions);
-        if (!method_exists($user, 'hasAnyModule')) {
+        try {
+            $user = Auth::user();
+
+            foreach ($permissions as $permissionData) {
+                $module = Module::findByName($permissionData['module']);
+                $permission = Permission::findByName($permissionData['permission']);
+
+                if ($module->exists() && $permission->exists()) {
+                    if ($this->userCanAssignModulePermission($user, $module, $permission)) {
+                        $role->revokeModelPermissionTo($module->name, $permission->name);
+                    }
+                }
+            }
+
+            return $role;
+        } catch (Exception $e) {
+            Log::channel('repositories')->error("RoleRepository:bulkUnassign - {$e->getMessage()}");
+            throw $e;
+        }
+    }
+
+    private function userCanAssignModulePermission($user, $module, $permission): bool
+    {
+        if (! $user) {
             return false;
         }
-        return $user->hasModuleAndPermissionTo($modelsPermissions);
+
+        if ($user->isSuperAdmin()) {
+            return true;
+        }
+
+        return $this->userHasModulePermission($user, $module, $permission);
+    }
+
+    private function userHasModulePermission($user, $module, $permission): bool
+    {
+        try {
+            foreach ($user->roles as $role) {
+                foreach ($role->roleModulesPermission as $roleModulePermission) {
+                    $modelHasPermission = $roleModulePermission->modelHasPermission;
+
+                    foreach ($modelHasPermission->module as $mod) {
+                        if ($mod->uuid === $module->uuid) {
+                            foreach ($modelHasPermission->permission as $perm) {
+                                if ($perm->uuid === $permission->uuid) {
+                                    return true;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            return false;
+        } catch (Exception $e) {
+            Log::channel('repositories')->error("RoleRepository:userHasModulePermission - {$e->getMessage()}");
+            return false;
+        }
     }
 }
 ```
 
-## Register Middleware (`bootstrap/app.php`) — MERGE, do NOT replace
+### RoleController (`app/Http/Controllers/AccessControl/RoleController.php`)
 
-**IMPORTANT:** Use file_read to read the EXISTING bootstrap/app.php first. Then ADD the middleware alias inside the existing withMiddleware callback. Keep ALL existing code intact.
-
-Add this middleware alias inside the existing `->withMiddleware()` call:
 ```php
-'model_permission' => \App\Http\Middleware\ModelAndPermissionMiddleware::class,
+namespace App\Http\Controllers\AccessControl;
+
+use App\Http\Controllers\Controller;
+use App\Http\Requests\AccessControl\RoleBulkPermissionRequest;
+use App\Http\Requests\AccessControl\RoleRequest;
+use App\Models\Role;
+use App\Services\AccessControl\RoleService;
+use Illuminate\Http\Resources\Json\JsonResource;
+
+class RoleController extends Controller
+{
+    public function __construct(private RoleService $service) {}
+
+    public function index(): JsonResource { return $this->service->index(); }
+    public function show(Role $role): JsonResource { return $this->service->show($role); }
+    public function store(RoleRequest $request): JsonResource { return $this->service->store($request->validated()); }
+    public function update(Role $role, RoleRequest $request): JsonResource { return $this->service->update($role, $request->validated()); }
+    public function destroy(Role $role): JsonResource { return $this->service->destroy($role); }
+
+    public function bulkAssignModulePermissions(Role $role, RoleBulkPermissionRequest $request): JsonResource
+    {
+        return $this->service->bulkAssignModulePermissions($role, $request->validated()['permissions']);
+    }
+
+    public function bulkUnassignModulePermissions(Role $role, RoleBulkPermissionRequest $request): JsonResource
+    {
+        return $this->service->bulkUnassignModulePermissions($role, $request->validated()['permissions']);
+    }
+}
 ```
 
-## User Model — HOW TO MODIFY (do NOT replace)
+### RoleBulkPermissionRequest
 
-**IMPORTANT:** Use file_read to read the EXISTING User.php first. Then ADD these traits and keep ALL existing code intact.
-
-Traits to ADD to the User model class:
-- `use Spatie\Permission\Traits\HasRoles;` (import)
-- `use App\Traits\HasModulePermission;` (import)
-- Add `HasRoles, HasModulePermission` to the `use` statement inside the class
-
-Example of what to ADD (merge with existing code, do NOT replace the file):
 ```php
-// ADD these imports at the top:
-use App\Traits\HasModulePermission;
-use Spatie\Permission\Traits\HasRoles;
+namespace App\Http\Requests\AccessControl;
 
-// ADD these traits to the class use statement:
-use HasRoles, HasModulePermission;
+use Illuminate\Foundation\Http\FormRequest;
+
+class RoleBulkPermissionRequest extends FormRequest
+{
+    public function authorize(): bool { return true; }
+
+    public function rules(): array
+    {
+        return [
+            'permissions' => 'required|array|min:1',
+            'permissions.*.module' => 'required|string|exists:modules,name',
+            'permissions.*.permission' => 'required|string|exists:permissions,name',
+        ];
+    }
+}
 ```
 
-## Controller Usage — DOCUMENTATION ONLY (do NOT create this file)
+## Security Rules Summary
 
-This is a REFERENCE showing how controllers should apply middleware. Replace `{entity}` with the actual module name (e.g., `user`, `role`, `campaign`). Do NOT create a file called `{Entity}Controller.php`.
+| Rule | Implementation |
+|------|---------------|
+| Cannot give permissions you don't have | `userCanAssignModulePermission()` in RoleRepository |
+| Cannot remove permissions you don't have | Same validation on bulkUnassign |
+| Cannot see/assign own role | `whereNotIn('uuid', $userRoleIds)` in index() |
+| Separate assign/unassign permissions | `assign-role` and `unassign-role` as distinct actions |
+| Super admin bypasses all | `Gate::before` + `$user->isSuperAdmin()` |
+| Bulk operations validate per-item | Each permission in array checked individually |
 
-Example for a UserController:
-```php
-// In the controller constructor or route definition:
-$this->middleware('model_permission:show-user')->only(['show']);
-$this->middleware('model_permission:index-user')->only(['index']);
-$this->middleware('model_permission:store-user')->only(['store']);
-$this->middleware('model_permission:update-user')->only(['update']);
-$this->middleware('model_permission:delete-user')->only(['destroy']);
-```
-
-## Seeder
+## Seeder (Config-Driven)
 
 ```php
 namespace Database\Seeders;
 
-use App\Models\Role;
 use App\Models\Module;
 use App\Models\Permission;
+use App\Models\Role;
 use Illuminate\Database\Seeder;
 
 class PermissionsSeeder extends Seeder
 {
     public function run(): void
     {
-        $permissions = ['show', 'index', 'store', 'update', 'delete', 'export', 'print'];
-        foreach ($permissions as $permissionName) {
+        $this->createPermissions();
+        $this->createModulesWithPermissions();
+        $this->createRoles();
+    }
+
+    private function createPermissions(): void
+    {
+        foreach (config('acl.permissions') as $permissionName) {
             Permission::firstOrCreate(['name' => $permissionName, 'guard_name' => 'api']);
         }
+    }
 
-        $modules = ['user', 'role', 'entity', 'rule'];
-        foreach ($modules as $moduleName) {
+    private function createModulesWithPermissions(): void
+    {
+        $permissions = config('acl.permissions');
+        foreach (config('acl.modules') as $moduleName) {
             $module = Module::firstOrCreate(['name' => $moduleName, 'guard_name' => 'api']);
             $module->givePermissionTo($permissions);
         }
+    }
 
-        $adminRole = Role::firstOrCreate(['name' => 'Admin', 'guard_name' => 'api']);
-        foreach ($modules as $moduleName) {
-            foreach ($permissions as $permissionName) {
-                $adminRole->giveModelPermissionTo($moduleName, $permissionName);
+    private function createRoles(): void
+    {
+        $allModules = config('acl.modules');
+        $allPermissions = config('acl.permissions');
+
+        foreach (config('acl.roles') as $roleName => $roleConfig) {
+            $role = Role::firstOrCreate(['name' => $roleName, 'guard_name' => 'api']);
+
+            if ($roleName === 'super_admin') {
+                continue;
+            }
+
+            $modules = $roleConfig['modules'] ?? $allModules;
+            $permissions = $roleConfig['permissions'] ?? $allPermissions;
+
+            foreach ($modules as $moduleName) {
+                foreach ($permissions as $permissionName) {
+                    $role->giveModelPermissionTo($moduleName, $permissionName);
+                }
             }
         }
     }
 }
 ```
 
+## Routes (`routes/api/v1.php`)
+
+```php
+use App\Http\Controllers\AccessControl\RoleController;
+
+Route::controller(RoleController::class)->prefix('roles')->group(function () {
+    Route::get('/', 'index')->middleware('permission:index-role');
+    Route::get('/{role}', 'show')->middleware('permission:show-role');
+    Route::post('/', 'store')->middleware('permission:store-role');
+    Route::put('/{role}', 'update')->middleware('permission:update-role');
+    Route::delete('/{role}', 'destroy')->middleware('permission:delete-role');
+    Route::post('/{role}/assign-permissions', 'bulkAssignModulePermissions')->middleware('permission:assign-role');
+    Route::post('/{role}/unassign-permissions', 'bulkUnassignModulePermissions')->middleware('permission:unassign-role');
+});
+```
+
 ## Gate for Super Admin (AppServiceProvider)
 
 ```php
 Gate::before(function ($user, $ability) {
-    if ($user->hasRole('Super Admin')) {
+    if ($user->hasRole('super_admin')) {
         return true;
     }
 });
@@ -693,35 +451,20 @@ Gate::before(function ($user, $ability) {
 
 ## Workflow — Execute in this EXACT order
 
-1. **shell_exec**: `composer require spatie/laravel-permission` — MUST run first
-2. **file_write**: `config/permission.php` — create config file
-3. **file_write**: Create migration files in `database/migrations/` — create BOTH migration files
-4. **file_write**: Create Models (Permission, Role, Module, ModelHasPermission, RoleModulesPermission)
-5. **file_write**: Create Traits (HasNameLookup, HasGuard, HasModulePermission)
-6. **file_write**: Create Exception (NotLoggedInException)
-7. **file_write**: Create Middleware (ModelAndPermissionMiddleware)
-8. **file_read** then **file_write**: Read bootstrap/app.php, merge middleware alias, write back COMPLETE file
-9. **file_read** then **file_write**: Read User.php, add traits (HasRoles, HasModulePermission), write back COMPLETE file
-10. **file_write**: Create Seeder (PermissionsSeeder)
-11. **file_read** then **file_write**: Read AppServiceProvider.php, add Gate::before for Super Admin, write back COMPLETE file
-12. **shell_exec**: `php artisan migrate`
-13. **shell_exec**: `php artisan db:seed --class=PermissionsSeeder`
-14. **shell_exec**: `vendor/bin/pint --dirty`
-
-## Commands
-
-```bash
-php artisan migrate
-php artisan db:seed --class=PermissionsSeeder
-php artisan permission:cache-reset
-```
-
-## Detection Check
-
-```bash
-ls app/Models/Module.php 2>/dev/null
-ls app/Traits/HasModulePermission.php 2>/dev/null
-grep -l "model_permission" bootstrap/app.php
-```
-
-If exists → update/extend. If not → create full structure.
+1. `composer require spatie/laravel-permission`
+2. Create `config/permission.php` and `config/acl.php` (ask user for modules and roles)
+3. Create migration files
+4. Create Models (Permission, Role, Module, ModelHasPermission, RoleModulesPermission)
+5. Create Traits (HasNameLookup, HasGuard, HasModulePermission)
+6. Create Exception (NotLoggedInException)
+7. Create Middleware (ModelAndPermissionMiddleware)
+8. Read + merge `bootstrap/app.php` (add middleware aliases)
+9. Read + merge `User.php` (add traits + isSuperAdmin)
+10. Create RoleRepository (with privilege escalation prevention)
+11. Create RoleService, RoleController, RoleBulkPermissionRequest
+12. Create PermissionsSeeder (config-driven)
+13. Read + merge `AppServiceProvider.php` (add Gate::before)
+14. Add role routes to `routes/api/v1.php`
+15. `php artisan migrate`
+16. `php artisan db:seed --class=PermissionsSeeder`
+17. `vendor/bin/pint --dirty`

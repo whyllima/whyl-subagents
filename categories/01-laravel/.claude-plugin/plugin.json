@@ -1,7 +1,7 @@
 {
   "name": "whyll-agents",
-  "version": "2.3.0",
-  "description": "Laravel specialist agents for WhylLima project - builders and fixers for full-stack, models, API layer, endpoints, tests, jobs, resources, seeders, events, JWT auth, ACL, audit, Horizon (Redis PhpRedis), and quality checking. Laravel 12, PHP 8.3, Service-Repository pattern.",
+  "version": "3.0.0",
+  "description": "Laravel 13 specialist agents for WhylLima project - builders and fixers for full-stack, models, API layer, endpoints, tests, jobs, resources, seeders, events, JWT auth, ACL (config-driven + privilege escalation prevention), audit, Horizon, AI agents, MCP servers, and quality checking. PHP 8.3+, PHP attributes, domain folders, versioned API, Service-Repository pattern.",
   "author": {
     "name": "Whyl",
     "url": "https://github.com/whyllima/whyl-subagents"
@@ -28,6 +28,8 @@
     "./repository-fixer.md",
     "./model-fixer.md",
     "./formrequest-fixer.md",
-    "./resource-fixer.md"
+    "./resource-fixer.md",
+    "./ai-agent-builder.md",
+    "./mcp-server-builder.md"
   ]
 }
