@@ -30,6 +30,7 @@
     "./formrequest-fixer.md",
     "./resource-fixer.md",
     "./ai-agent-builder.md",
-    "./mcp-server-builder.md"
+    "./mcp-server-builder.md",
+    "./octane-builder.md"
   ]
 }

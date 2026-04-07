@@ -21,6 +21,7 @@ Update: `cd whyl-subagents && git pull`
 | horizon-builder | horizon-builder.md | Redis Horizon + Queue::route() |
 | ai-agent-builder | ai-agent-builder.md | AI Agents (laravel/ai) |
 | mcp-server-builder | mcp-server-builder.md | MCP Servers (laravel/mcp) |
+| octane-builder | octane-builder.md | Octane + RoadRunner |
 | quality-checker | quality-checker.md | Audita código |
 | controller-fixer | controller-fixer.md | Remove lógica do controller |
 | service-fixer | service-fixer.md | Garante Repository e Resources |
