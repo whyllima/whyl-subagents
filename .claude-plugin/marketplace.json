@@ -21,7 +21,7 @@
     {
       "name": "whyll-agents-front",
       "source": "./categories/02-front-end",
-      "description": "Front-end specialist agents - Nuxt 3 project builder with Pinia, Axios, PrimeVue, TypeScript, i18n, and recommended tooling",
+      "description": "Front-end specialist agents - form-validation-builder (vee-validate 4 + Yup), Nuxt 3 project builder with Pinia, Axios, PrimeVue, TypeScript, i18n, and recommended tooling",
       "version": "1.0.0",
       "category": "development",
       "keywords": ["nuxt", "vue", "pinia", "primevue", "axios", "typescript", "i18n", "whyllima"]

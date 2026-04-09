@@ -33,6 +33,7 @@ Update: `cd whyl-subagents && git pull`
 ## 02 - Front-end / Nuxt 4 + PrimeVue 4 (categories/02-front-end/)
 | Agent | File | Use when |
 |---|---|---|
+| form-validation-builder | form-validation-builder.md | Formulários Vue 3 com vee-validate 4 + Yup (simples, modais, wizards multi-step) |
 | nuxt-project-builder | nuxt-project-builder.md | Projeto Nuxt 4 do zero (PrimeVue 4 design tokens) |
 | page-builder | page-builder.md | Páginas com layout props, route groups |
 | component-builder | component-builder.md | Componentes PrimeVue 4 (Select, DatePicker, Tabs) |
