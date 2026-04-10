@@ -47,6 +47,8 @@ return [
         'delete',
         'export',
         'print',
+        'assign',
+        'unassign',
     ],
 
     'modules' => [
@@ -530,6 +532,7 @@ trait HasRoles
     {
         $role = Role::findByName($roleName);
         $this->roles()->syncWithoutDetaching([$role->uuid]);
+        $this->clearPermissionsCache();
 
         return $this;
     }
@@ -538,6 +541,7 @@ trait HasRoles
     {
         $role = Role::findByName($roleName);
         $this->roles()->detach($role->uuid);
+        $this->clearPermissionsCache();
 
         return $this;
     }
@@ -551,34 +555,22 @@ trait HasRoles
 
 ### HasModulePermission (User trait — module-level checks)
 
+Permissions are cached per user as a flat array of `{action}-{module}` strings.
+Cache is invalidated automatically when a role is assigned or removed via `HasRoles`.
+
 ```php
 namespace App\Traits;
 
-use App\Models\Module;
-use App\Models\Permission;
-use Exception;
+use Illuminate\Support\Facades\Cache;
 
 trait HasModulePermission
 {
     public function hasModuleAndPermissionTo(array $modelsHasPermissions): bool
     {
+        $userPermissions = $this->getCachedPermissions();
+
         foreach ($modelsHasPermissions as $modelPermission) {
-            $parts = explode('-', $modelPermission, 2);
-
-            if (count($parts) < 2) {
-                throw new Exception('Invalid permission format. Expected: {action}-{module}');
-            }
-
-            [$action, $moduleName] = $parts;
-
-            try {
-                $module = Module::findByName($moduleName);
-                $permission = Permission::findByName($action);
-            } catch (Exception) {
-                continue;
-            }
-
-            if ($this->userHasPermissionForModule($module, $permission)) {
+            if (in_array($modelPermission, $userPermissions, true)) {
                 return true;
             }
         }
@@ -586,27 +578,42 @@ trait HasModulePermission
         return false;
     }
 
-    protected function userHasPermissionForModule($module, $permission): bool
+    public function clearPermissionsCache(): void
     {
+        Cache::forget("acl_permissions_{$this->uuid}");
+    }
+
+    protected function getCachedPermissions(): array
+    {
+        return Cache::remember(
+            "acl_permissions_{$this->uuid}",
+            config('acl.cache.ttl', 3600),
+            fn () => $this->loadPermissions()
+        );
+    }
+
+    protected function loadPermissions(): array
+    {
+        $permissions = [];
+
+        $this->loadMissing([
+            'roles.roleModulesPermission.modelHasPermission.module',
+            'roles.roleModulesPermission.modelHasPermission.permission',
+        ]);
+
         foreach ($this->roles as $role) {
             foreach ($role->roleModulesPermission as $rmp) {
                 $mhp = $rmp->modelHasPermission;
 
                 foreach ($mhp->module as $mod) {
-                    if ($mod->uuid !== $module->uuid) {
-                        continue;
-                    }
-
                     foreach ($mhp->permission as $perm) {
-                        if ($perm->uuid === $permission->uuid) {
-                            return true;
-                        }
+                        $permissions[] = "{$perm->name}-{$mod->name}";
                     }
                 }
             }
         }
 
-        return false;
+        return array_unique($permissions);
     }
 }
 ```
@@ -735,7 +742,8 @@ class RoleRepository extends Repository
     }
 
     /**
-     * List roles — EXCLUDES the user's own roles.
+     * List roles — EXCLUDES the user's own roles and super_admin for non-super_admins.
+     * super_admin role is NEVER visible to regular users, regardless of permissions.
      */
     public function index(array $filters = [])
     {
@@ -750,6 +758,7 @@ class RoleRepository extends Repository
             $userRoleIds = $user->roles->pluck('uuid')->toArray();
 
             return Role::whereNotIn('uuid', $userRoleIds)
+                ->where('name', '!=', 'super_admin')
                 ->orderBy('created_at', 'desc')
                 ->paginate($perPage);
         } catch (Exception $e) {
@@ -758,22 +767,51 @@ class RoleRepository extends Repository
         }
     }
 
+    public function show(Role $role): Role
+    {
+        $this->guardSuperAdmin($role);
+
+        return $role;
+    }
+
+    public function update(Role $role, array $data): Role
+    {
+        $this->guardSuperAdmin($role);
+        $role->update($data);
+
+        return $role->fresh();
+    }
+
+    public function destroy(Role $role): void
+    {
+        $this->guardSuperAdmin($role);
+        $role->delete();
+    }
+
     /**
-     * Bulk assign — validates EACH permission against user's own.
+     * Bulk assign — each item is a module with N permissions.
+     * Validates EACH permission against user's own before assigning.
      */
-    public function bulkAssignModulePermissions(Role $role, array $permissions)
+    public function bulkAssignModulePermissions(Role $role, array $modules)
     {
         try {
+            $this->guardSuperAdmin($role);
             $user = Auth::user();
 
-            foreach ($permissions as $permissionData) {
-                $module = Module::findByName($permissionData['module']);
-                $permission = Permission::findByName($permissionData['permission']);
+            foreach ($modules as $moduleData) {
+                $module = Module::findByName($moduleData['module']);
 
-                if ($this->userCanAssignModulePermission($user, $module, $permission)) {
-                    $role->giveModelPermissionTo($module->name, $permission->name);
+                foreach ($moduleData['permissions'] as $permissionName) {
+                    $permission = Permission::findByName($permissionName);
+
+                    if ($this->userCanAssignModulePermission($user, $module, $permission)) {
+                        $role->giveModelPermissionTo($module->name, $permission->name);
+                    }
                 }
             }
+
+            // Clear cache for all users who have this role
+            $role->users()->each(fn ($u) => $u->clearPermissionsCache());
 
             return $role;
         } catch (Exception $e) {
@@ -783,26 +821,45 @@ class RoleRepository extends Repository
     }
 
     /**
-     * Bulk unassign — validates EACH permission against user's own.
+     * Bulk unassign — each item is a module with N permissions.
+     * Validates EACH permission against user's own before revoking.
      */
-    public function bulkUnassignModulePermissions(Role $role, array $permissions)
+    public function bulkUnassignModulePermissions(Role $role, array $modules)
     {
         try {
+            $this->guardSuperAdmin($role);
             $user = Auth::user();
 
-            foreach ($permissions as $permissionData) {
-                $module = Module::findByName($permissionData['module']);
-                $permission = Permission::findByName($permissionData['permission']);
+            foreach ($modules as $moduleData) {
+                $module = Module::findByName($moduleData['module']);
 
-                if ($this->userCanAssignModulePermission($user, $module, $permission)) {
-                    $role->revokeModelPermissionTo($module->name, $permission->name);
+                foreach ($moduleData['permissions'] as $permissionName) {
+                    $permission = Permission::findByName($permissionName);
+
+                    if ($this->userCanAssignModulePermission($user, $module, $permission)) {
+                        $role->revokeModelPermissionTo($module->name, $permission->name);
+                    }
                 }
             }
+
+            // Clear cache for all users who have this role
+            $role->users()->each(fn ($u) => $u->clearPermissionsCache());
 
             return $role;
         } catch (Exception $e) {
             Log::channel('repositories')->error("RoleRepository:bulkUnassign - {$e->getMessage()}");
             throw $e;
+        }
+    }
+
+    /**
+     * Blocks non-super_admins from accessing the super_admin role entirely.
+     * Applies to show, update, destroy, and bulk permission operations.
+     */
+    private function guardSuperAdmin(Role $role): void
+    {
+        if ($role->name === 'super_admin' && ! Auth::user()->isSuperAdmin()) {
+            throw UnauthorizedException::forPermission('super_admin');
         }
     }
 
@@ -871,17 +928,41 @@ class RoleController extends Controller
 
     public function bulkAssignModulePermissions(Role $role, RoleBulkPermissionRequest $request): JsonResource
     {
-        return $this->service->bulkAssignModulePermissions($role, $request->validated()['permissions']);
+        return $this->service->bulkAssignModulePermissions($role, $request->validated()['modules']);
     }
 
     public function bulkUnassignModulePermissions(Role $role, RoleBulkPermissionRequest $request): JsonResource
     {
-        return $this->service->bulkUnassignModulePermissions($role, $request->validated()['permissions']);
+        return $this->service->bulkUnassignModulePermissions($role, $request->validated()['modules']);
+    }
+}
+```
+
+### RoleRequest
+
+```php
+namespace App\Http\Requests\AccessControl;
+
+use Illuminate\Foundation\Http\FormRequest;
+
+class RoleRequest extends FormRequest
+{
+    public function authorize(): bool { return true; }
+
+    public function rules(): array
+    {
+        return [
+            // Reserved names cannot be created or renamed to — they are system-only
+            'name' => 'required|string|not_in:super_admin,admin',
+            'guard_name' => 'sometimes|string',
+        ];
     }
 }
 ```
 
 ### RoleBulkPermissionRequest
+
+Formato expressivo: cada item é um módulo com N permissões selecionadas.
 
 ```php
 namespace App\Http\Requests\AccessControl;
@@ -895,13 +976,274 @@ class RoleBulkPermissionRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'permissions' => 'required|array|min:1',
-            'permissions.*.module' => 'required|string|exists:modules,name',
-            'permissions.*.permission' => 'required|string|exists:permissions,name',
+            'modules'                    => 'required|array|min:1',
+            'modules.*.module'           => 'required|string|exists:modules,name',
+            'modules.*.permissions'      => 'required|array|min:1',
+            'modules.*.permissions.*'    => 'required|string|exists:permissions,name',
         ];
     }
 }
 ```
+
+**Payload example:**
+```json
+{
+  "modules": [
+    { "module": "user",       "permissions": ["show", "index", "store", "update"] },
+    { "module": "role",       "permissions": ["show", "index"] },
+    { "module": "dashboard",  "permissions": ["show"] }
+  ]
+}
+```
+
+## Module API
+
+### ModuleRepository (`app/Repositories/AccessControl/ModuleRepository.php`)
+
+```php
+namespace App\Repositories\AccessControl;
+
+use App\Models\ModelHasPermission;
+use App\Models\Module;
+use App\Models\Permission;
+use App\Repositories\Repository;
+use Exception;
+use Illuminate\Support\Facades\Log;
+
+class ModuleRepository extends Repository
+{
+    public function __construct()
+    {
+        $this->model = new Module();
+    }
+
+    public function index(array $filters = [])
+    {
+        try {
+            $perPage = $filters['per_page'] ?? 15;
+
+            return Module::with(['permissions.permission'])
+                ->orderBy('name')
+                ->paginate($perPage);
+        } catch (Exception $e) {
+            Log::channel('repositories')->error("ModuleRepository:index - {$e->getMessage()}");
+            throw $e;
+        }
+    }
+
+    /**
+     * Bulk assign permissions to a module.
+     * Payload: ["show", "index", "store", ...]
+     */
+    public function bulkAssignPermissions(Module $module, array $permissions): Module
+    {
+        try {
+            foreach ($permissions as $permissionName) {
+                $module->givePermissionTo($permissionName);
+            }
+
+            return $module->fresh(['permissions.permission']);
+        } catch (Exception $e) {
+            Log::channel('repositories')->error("ModuleRepository:bulkAssign - {$e->getMessage()}");
+            throw $e;
+        }
+    }
+
+    /**
+     * Bulk unassign permissions from a module.
+     * Payload: ["show", "index", ...]
+     */
+    public function bulkUnassignPermissions(Module $module, array $permissions): Module
+    {
+        try {
+            foreach ($permissions as $permissionName) {
+                $permission = Permission::findByName($permissionName);
+
+                ModelHasPermission::where([
+                    'model_type'      => Module::class,
+                    'model_uuid'      => $module->uuid,
+                    'permission_uuid' => $permission->uuid,
+                ])->delete();
+            }
+
+            return $module->fresh(['permissions.permission']);
+        } catch (Exception $e) {
+            Log::channel('repositories')->error("ModuleRepository:bulkUnassign - {$e->getMessage()}");
+            throw $e;
+        }
+    }
+}
+```
+
+### ModuleController (`app/Http/Controllers/AccessControl/ModuleController.php`)
+
+```php
+namespace App\Http\Controllers\AccessControl;
+
+use App\Http\Controllers\Controller;
+use App\Http\Requests\AccessControl\ModuleBulkPermissionRequest;
+use App\Http\Requests\AccessControl\ModuleRequest;
+use App\Models\Module;
+use App\Services\AccessControl\ModuleService;
+use Illuminate\Http\Resources\Json\JsonResource;
+
+class ModuleController extends Controller
+{
+    public function __construct(private ModuleService $service) {}
+
+    public function index(): JsonResource { return $this->service->index(); }
+    public function show(Module $module): JsonResource { return $this->service->show($module); }
+    public function store(ModuleRequest $request): JsonResource { return $this->service->store($request->validated()); }
+    public function update(Module $module, ModuleRequest $request): JsonResource { return $this->service->update($module, $request->validated()); }
+    public function destroy(Module $module): JsonResource { return $this->service->destroy($module); }
+
+    public function bulkAssignPermissions(Module $module, ModuleBulkPermissionRequest $request): JsonResource
+    {
+        return $this->service->bulkAssignPermissions($module, $request->validated()['permissions']);
+    }
+
+    public function bulkUnassignPermissions(Module $module, ModuleBulkPermissionRequest $request): JsonResource
+    {
+        return $this->service->bulkUnassignPermissions($module, $request->validated()['permissions']);
+    }
+}
+```
+
+### ModuleRequest
+
+```php
+namespace App\Http\Requests\AccessControl;
+
+use Illuminate\Foundation\Http\FormRequest;
+
+class ModuleRequest extends FormRequest
+{
+    public function authorize(): bool { return true; }
+
+    public function rules(): array
+    {
+        return [
+            'name'       => 'required|string|unique:modules,name',
+            'guard_name' => 'sometimes|string',
+        ];
+    }
+}
+```
+
+### ModuleBulkPermissionRequest
+
+```php
+namespace App\Http\Requests\AccessControl;
+
+use Illuminate\Foundation\Http\FormRequest;
+
+class ModuleBulkPermissionRequest extends FormRequest
+{
+    public function authorize(): bool { return true; }
+
+    public function rules(): array
+    {
+        return [
+            'permissions'   => 'required|array|min:1',
+            'permissions.*' => 'required|string|exists:permissions,name',
+        ];
+    }
+}
+```
+
+**Payload example:**
+```json
+POST /modules/{module}/assign-permissions
+{ "permissions": ["show", "index", "store", "update", "delete"] }
+```
+
+---
+
+## Permission API
+
+### PermissionRepository (`app/Repositories/AccessControl/PermissionRepository.php`)
+
+```php
+namespace App\Repositories\AccessControl;
+
+use App\Models\Permission;
+use App\Repositories\Repository;
+use Exception;
+use Illuminate\Support\Facades\Log;
+
+class PermissionRepository extends Repository
+{
+    public function __construct()
+    {
+        $this->model = new Permission();
+    }
+
+    public function index(array $filters = [])
+    {
+        try {
+            $perPage = $filters['per_page'] ?? 15;
+
+            return Permission::orderBy('name')->paginate($perPage);
+        } catch (Exception $e) {
+            Log::channel('repositories')->error("PermissionRepository:index - {$e->getMessage()}");
+            throw $e;
+        }
+    }
+}
+```
+
+### PermissionController (`app/Http/Controllers/AccessControl/PermissionController.php`)
+
+```php
+namespace App\Http\Controllers\AccessControl;
+
+use App\Http\Controllers\Controller;
+use App\Http\Requests\AccessControl\PermissionRequest;
+use App\Models\Permission;
+use App\Services\AccessControl\PermissionService;
+use Illuminate\Http\Resources\Json\JsonResource;
+
+class PermissionController extends Controller
+{
+    public function __construct(private PermissionService $service) {}
+
+    public function index(): JsonResource { return $this->service->index(); }
+    public function show(Permission $permission): JsonResource { return $this->service->show($permission); }
+    public function store(PermissionRequest $request): JsonResource { return $this->service->store($request->validated()); }
+    public function update(Permission $permission, PermissionRequest $request): JsonResource { return $this->service->update($permission, $request->validated()); }
+    public function destroy(Permission $permission): JsonResource { return $this->service->destroy($permission); }
+}
+```
+
+### PermissionRequest
+
+```php
+namespace App\Http\Requests\AccessControl;
+
+use Illuminate\Foundation\Http\FormRequest;
+
+class PermissionRequest extends FormRequest
+{
+    public function authorize(): bool { return true; }
+
+    public function rules(): array
+    {
+        return [
+            'name'       => 'required|string|unique:permissions,name',
+            'guard_name' => 'sometimes|string',
+        ];
+    }
+}
+```
+
+---
+
+## ACL Design Principles
+
+This ACL is **modular, flat, and self-explanatory** — no hierarchy, no levels, no role inheritance:
+- Access is defined by **which modules** a role can access and **which actions** it can perform
+- There is no "level 1 > level 2" ranking — a role either has a permission or it doesn't
+- Adding a new module means adding it to `config/acl.php` — no code changes needed
 
 ## Security Rules Summary
 
@@ -910,9 +1252,17 @@ class RoleBulkPermissionRequest extends FormRequest
 | Cannot give permissions you don't have | `userCanAssignModulePermission()` in RoleRepository |
 | Cannot remove permissions you don't have | Same validation on bulkUnassign |
 | Cannot see/assign own role | `whereNotIn('uuid', $userRoleIds)` in index() |
+| `super_admin` is INVISIBLE to non-super_admins | `->where('name', '!=', 'super_admin')` in index() |
+| `super_admin` blocked in show/update/destroy/bulk | `guardSuperAdmin()` called at start of each method |
+| `super_admin` cannot be assigned by anyone | Only seeder creates it — no API endpoint assigns it |
+| Reserved names (`super_admin`, `admin`) cannot be created/renamed | `not_in:super_admin,admin` validation in `RoleRequest` |
+| User cannot modify their own roles | Enforce in UserRoleRepository: `if ($targetUser->uuid === Auth::user()->uuid) throw UnauthorizedException` |
+| Role permission change clears all affected users' cache | `$role->users()->each(fn ($u) => $u->clearPermissionsCache())` after bulk operations |
 | Separate assign/unassign permissions | `assign-role` and `unassign-role` as distinct actions |
 | Super admin bypasses all | `Gate::before` + `$user->isSuperAdmin()` |
 | Bulk operations validate per-item | Each permission in array checked individually |
+| Permissions cached per user | `HasModulePermission::getCachedPermissions()` — cache key `acl_permissions_{uuid}` |
+| Cache invalidated on role change | `clearPermissionsCache()` called in `assignRole()` and `removeRole()` |
 
 ## Seeder (Config-Driven)
 
@@ -992,8 +1342,11 @@ Gate::before(function ($user, $ability) {
 ## Routes (`routes/api/v1.php`)
 
 ```php
+use App\Http\Controllers\AccessControl\ModuleController;
+use App\Http\Controllers\AccessControl\PermissionController;
 use App\Http\Controllers\AccessControl\RoleController;
 
+// Roles
 Route::controller(RoleController::class)->prefix('roles')->group(function () {
     Route::get('/', 'index')->middleware('permission:index-role');
     Route::get('/{role}', 'show')->middleware('permission:show-role');
@@ -1002,6 +1355,26 @@ Route::controller(RoleController::class)->prefix('roles')->group(function () {
     Route::delete('/{role}', 'destroy')->middleware('permission:delete-role');
     Route::post('/{role}/assign-permissions', 'bulkAssignModulePermissions')->middleware('permission:assign-role');
     Route::post('/{role}/unassign-permissions', 'bulkUnassignModulePermissions')->middleware('permission:unassign-role');
+});
+
+// Modules
+Route::controller(ModuleController::class)->prefix('modules')->group(function () {
+    Route::get('/', 'index')->middleware('permission:index-module');
+    Route::get('/{module}', 'show')->middleware('permission:show-module');
+    Route::post('/', 'store')->middleware('permission:store-module');
+    Route::put('/{module}', 'update')->middleware('permission:update-module');
+    Route::delete('/{module}', 'destroy')->middleware('permission:delete-module');
+    Route::post('/{module}/assign-permissions', 'bulkAssignPermissions')->middleware('permission:assign-module');
+    Route::post('/{module}/unassign-permissions', 'bulkUnassignPermissions')->middleware('permission:unassign-module');
+});
+
+// Permissions
+Route::controller(PermissionController::class)->prefix('permissions')->group(function () {
+    Route::get('/', 'index')->middleware('permission:index-permission');
+    Route::get('/{permission}', 'show')->middleware('permission:show-permission');
+    Route::post('/', 'store')->middleware('permission:store-permission');
+    Route::put('/{permission}', 'update')->middleware('permission:update-permission');
+    Route::delete('/{permission}', 'destroy')->middleware('permission:delete-permission');
 });
 ```
 
@@ -1016,13 +1389,15 @@ Route::controller(RoleController::class)->prefix('roles')->group(function () {
 7. Read + merge `bootstrap/app.php` (add middleware alias `permission`)
 8. Read + merge `User.php` (add HasRoles, HasModulePermission traits)
 9. Create RoleRepository (with privilege escalation prevention)
-10. Create RoleService, RoleController, RoleBulkPermissionRequest
-11. Create PermissionsSeeder (config-driven)
-12. Read + merge `AppServiceProvider.php` (add Gate::before)
-13. Add role routes to `routes/api/v1.php`
-14. `php artisan migrate`
-15. `php artisan db:seed --class=PermissionsSeeder`
-16. `vendor/bin/pint --dirty`
+10. Create RoleService, RoleController, RoleRequest, RoleBulkPermissionRequest
+11. Create ModuleRepository, ModuleService, ModuleController, ModuleRequest, ModuleBulkPermissionRequest
+12. Create PermissionRepository, PermissionService, PermissionController, PermissionRequest
+13. Create PermissionsSeeder (config-driven)
+14. Read + merge `AppServiceProvider.php` (add Gate::before)
+15. Add all routes (roles, modules, permissions) to `routes/api/v1.php`
+16. `php artisan migrate`
+17. `php artisan db:seed --class=PermissionsSeeder`
+18. `vendor/bin/pint --dirty`
 
 ## Detection Check
 
