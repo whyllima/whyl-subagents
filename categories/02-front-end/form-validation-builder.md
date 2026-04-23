@@ -307,6 +307,164 @@ yup.object().shape({
 });
 ```
 
+## 4b. Advanced Wizard Patterns
+
+Real wizards need more than `.when()` — async checks, cross-step conditions, capability gating, and preserved values. These patterns cover all of it.
+
+### Async validation (server-side uniqueness check)
+
+Use `.test()` with an async function. The test runs after sync rules pass, so guard against empty values — `required`/`min` already flagged those:
+
+```typescript
+name: yup
+    .string()
+    .min(3, t('validation.minLength', { min: 3 }))
+    .required(t('validation.required'))
+    .test(
+        'name-available',
+        t('validation.nameTaken'),
+        async (value) => {
+            // Skip async check when sync rules already failed
+            if (!value || value.trim().length < 3) return true;
+            const res = await checkNameAvailability(value.trim(), currentUuid);
+            return res.available;
+        }
+    )
+```
+
+**Tip:** debounce the API call in the function you import, not in yup — yup re-runs the schema on every keystroke.
+
+### Accessing root/parent values from inside a `.test()`
+
+Yup exposes the ancestor chain via `this.from`. Index `0` is the immediate parent shape, `1` is the next ancestor, and so on up to the root. Use this to gate validation by a flag defined in another step/branch:
+
+```typescript
+trigger: yup.object().shape({
+    useExternalConditions: yup.boolean(),
+    campaigns: yup
+        .mixed()
+        .test('campaigns-required', t('validation.campaignRequired'), function (val) {
+            // `this.from[1].value` = the root form values
+            const root = (this as any).from?.[1]?.value;
+            if (!root?.capabilities?.trigger) return true;  // capability-gate: skip if feature off
+
+            // `this.parent` = immediate parent (trigger object)
+            const parent: any = this.parent;
+            if (parent.multiGeo?.enabled) return true;       // conditional skip
+
+            return Array.isArray(val) && val.length > 0;
+        })
+})
+```
+
+**The three scope handles inside `.test()`:**
+| Handle | What it points to |
+|---|---|
+| `this.parent` | The object shape that contains this field |
+| `this.from[0].value` | Same as `this.parent` |
+| `this.from[1].value` | Grandparent (usually the root in 2-level wizards) |
+| `this.from[2].value` | Great-grandparent (for deeply nested steps) |
+
+### Capability-gated validation (feature flags)
+
+Every test in a feature-gated step must first check the flag and early-return `true` when off. This keeps the schema in one place while letting the UI opt-in/out:
+
+```typescript
+const gatedTest = function (val: any) {
+    const root = (this as any).from?.[1]?.value;
+    if (!root?.capabilities?.trigger) return true;  // ← gate
+    // ... real validation below
+};
+```
+
+### Validating complex structures with `yup.mixed().test()`
+
+When a field is a free-form array/object (grid, dynamic groups, list of variables), skip `yup.array().of(...)` and use `yup.mixed().test()` — you get full control:
+
+```typescript
+// 7x24 boolean grid — at least one cell must be true
+daypartGrid: yup.mixed().test('has-selection', t('validation.selectAtLeastOne'), function (val) {
+    const root = (this as any).from?.[1]?.value;
+    if (!root?.capabilities?.trigger) return true;
+    return Array.isArray(val) && val.some((row: any) => Array.isArray(row) && row.some(Boolean));
+}),
+
+// Array of groups — every group must have >= 1 condition, each condition fully filled
+conditionGroups: yup.mixed().test('groups-valid', t('validation.conditionsRequired'), function (val) {
+    const groups = val as any[];
+    if (!Array.isArray(groups) || groups.length === 0) return false;
+    return groups.every((g) =>
+        Array.isArray(g.conditions) && g.conditions.length > 0 &&
+        g.conditions.every((c: any) =>
+            c.param && c.op && c.value !== '' && c.value !== null && c.value !== undefined
+        )
+    );
+}),
+
+// Array of variables — each with unique snake_case name and non-empty default
+contextualVariables: yup.mixed().test('vars-valid', t('validation.varsInvalid'), function (val) {
+    const vars = val as any[] | undefined;
+    if (!Array.isArray(vars) || vars.length === 0) return false;
+    const names = new Set<string>();
+    for (const v of vars) {
+        if (!v.name?.trim()) return false;
+        if (!/^[a-z][a-z0-9_]*$/.test(v.name)) return false;    // format
+        if (names.has(v.name)) return false;                     // uniqueness
+        names.add(v.name);
+        if (!v.defaultValue?.toString().trim()) return false;
+    }
+    return true;
+})
+```
+
+### Preserving values across steps — `:keep-values` + `:key` + reactive initial-values
+
+Wizards that remount (edit mode, hydration, step swap) lose state by default. Three props together fix it:
+
+```vue
+<Form
+    :key="formKey"                         ← bump to force full reset (new entity, discard)
+    :validation-schema="schema"
+    :initial-values="initialFormValues"    ← reactive — updates hydrate the form
+    :keep-values="true"                    ← don't wipe values when fields unmount (step nav)
+    v-slot="{ errors, values }"
+>
+    <WizardStepContainer :formValues="values" :errors="errors" />
+</Form>
+```
+
+```typescript
+// Reactive initial-values: refills when hydration resolves (edit mode)
+const initialFormValues = computed(() => ({
+    name: hydrated.value?.name ?? '',
+    start_date: hydrated.value?.start_date ?? null,
+    capabilities: { trigger: hydrated.value?.trigger ?? false, dco: hydrated.value?.dco ?? false },
+    trigger: {
+        useExternalConditions: false,
+        conditionGroups: [],
+        groupOperator: 'AND',
+        campaigns: [],
+        triggerAction: null
+    },
+    creative: { contextualVariables: [], selectedStamps: [], regional: { enabled: false, values: [] } }
+}));
+
+// Force remount (e.g., user clicks "Start over")
+const formKey = ref(0);
+const resetWizard = () => formKey.value++;
+```
+
+**When to use what:**
+| Need | Mechanism |
+|---|---|
+| User navigates between steps (fields unmount/remount) | `:keep-values="true"` |
+| Hydrated data arrives asynchronously (edit mode) | `:initial-values` as `computed` |
+| Full reset (discard draft, new entity) | Bump `:key="formKey"` |
+
+### Wizard-level summary
+
+A production wizard schema usually combines all five patterns: async `.test()` for uniqueness, `this.from[1].value` for root access, capability gating, `yup.mixed().test()` for complex structures, and `:keep-values` + reactive `:initial-values` on the Form. Keep the full schema in one file — do not split per step — so gating tests can reach across branches.
+
 ## 5. useField API Reference
 
 ```typescript
@@ -352,6 +510,11 @@ const {
 | Error message doesn't show | Ensure template has `<small v-if="errorMessage" class="p-error">{{ errorMessage }}</small>` |
 | Field not resetting when form resets | Ensure `initialValues` is reactive (computed) and matches field names |
 | Array fields not validating | Use `useFieldArray('entities')` for dynamic arrays |
+| Async `.test()` firing on every keystroke | Debounce the API call inside the test function; guard early-return when sync rules haven't passed |
+| `this.from[1].value` is `undefined` | You're at the root — use `this.parent` instead. `from[1]` only exists inside nested `yup.object().shape({...})` |
+| Values wiped when navigating between wizard steps | Add `:keep-values="true"` on `<Form>` |
+| Hydrated data not appearing in edit mode | Make `:initial-values` a `computed`, not a plain object |
+| Validation skipped when capability flag toggles on mid-wizard | Every gated test must re-read `root.capabilities.X` via `this.from[1].value` — don't cache the flag |
 
 ## Workflow
 
