@@ -22,6 +22,19 @@ ls app/Services/Service.php app/Repositories/Repository.php app/Http/Resources/S
 ```
 **If missing:** Flag as critical — all services/repositories depend on these.
 
+### Check Auditing
+```bash
+ls config/audit.php app/Resolvers/IpAddressResolver.php 2>/dev/null
+grep -l "owen-it/laravel-auditing" composer.json 2>/dev/null
+```
+**If installed:** Models MUST implement `ContractAuditable` and use `Auditable` trait.
+
+### Check Horizon / Octane
+```bash
+ls config/horizon.php config/octane.php 2>/dev/null
+```
+**If Horizon:** `Queue::route()` must exist in AppServiceProvider. **If Octane:** verify `warm`/`flush` in `config/octane.php`.
+
 ## Scan Commands
 
 ### Infrastructure
@@ -31,8 +44,10 @@ ls app/Services/Service.php 2>/dev/null || echo "MISSING: app/Services/Service.p
 ls app/Repositories/Repository.php 2>/dev/null || echo "MISSING: app/Repositories/Repository.php"
 ls app/Http/Resources/Shared/ErrorResource.php 2>/dev/null || echo "MISSING: app/Http/Resources/Shared/ErrorResource.php"
 
-# Logging channels missing
-grep -c "'services'\|'repositories'\|'jobs'" config/logging.php 2>/dev/null
+# Logging channels missing (check each individually)
+grep -q "'services'" config/logging.php 2>/dev/null || echo "MISSING: logging channel 'services'"
+grep -q "'repositories'" config/logging.php 2>/dev/null || echo "MISSING: logging channel 'repositories'"
+grep -q "'jobs'" config/logging.php 2>/dev/null || echo "MISSING: logging channel 'jobs'"
 
 # Spatie references (should be removed — ACL is standalone)
 grep -rl "spatie" app/ config/ 2>/dev/null
@@ -104,6 +119,16 @@ grep -rl 'AutoIncrementId' app/Models/ 2>/dev/null
 
 # Models with _id FKs (should be _uuid)
 grep -rn '_id' app/Models/ 2>/dev/null | grep -v "model_id\|node_modules\|vendor" | grep "belongsTo\|hasMany\|belongsToMany"
+
+# Auditing (only if owen-it/laravel-auditing is installed)
+# Models missing ContractAuditable interface
+grep -rL "ContractAuditable" app/Models/ 2>/dev/null | grep -v "Permission\|Role\|Module\|ModelHas\|RoleModules"
+
+# Models missing Auditable trait
+grep -rL "use Auditable\|, Auditable;" app/Models/ 2>/dev/null | grep -v "Permission\|Role\|Module\|ModelHas\|RoleModules"
+
+# Models with sensitive fields but no $auditExclude
+grep -rl "password\|remember_token\|api_token" app/Models/ 2>/dev/null | xargs grep -L "auditExclude" 2>/dev/null
 ```
 
 ### Migrations
@@ -134,12 +159,15 @@ find app/Http/Resources -maxdepth 1 -name "*Resource.php" ! -name "ErrorResource
 
 # Collections using old $collects property (should use #[Collects])
 grep -rl 'public \$collects' app/Http/Resources/ 2>/dev/null
+
+# Collections missing #[Collects] attribute
+grep -L "#\[Collects\]" app/Http/Resources/**/*Collection.php 2>/dev/null
 ```
 
 ### FormRequests
 ```bash
-# FormRequests without update handling
-grep -rL "isMethod('put')" app/Http/Requests/ 2>/dev/null | grep -v "Login\|Forgot\|Reset\|Bulk"
+# FormRequests without update handling (must check put OR patch)
+grep -rL "isMethod('put')\|isMethod('patch')" app/Http/Requests/ 2>/dev/null | grep -v "Login\|Forgot\|Reset\|Bulk"
 
 # FormRequests NOT in domain folders
 find app/Http/Requests -maxdepth 1 -name "*Request.php" 2>/dev/null
@@ -148,7 +176,7 @@ find app/Http/Requests -maxdepth 1 -name "*Request.php" 2>/dev/null
 ### Jobs
 ```bash
 # Jobs using old property style (should use PHP attributes)
-grep -rl 'public \$tries\|public \$timeout\|public \$backoff' app/Jobs/ 2>/dev/null
+grep -rl 'public \$tries\|public \$timeout\|public \$backoff\|public \$maxExceptions\|public \$connection\|public \$uniqueFor' app/Jobs/ 2>/dev/null
 
 # Jobs NOT in domain folders
 find app/Jobs -maxdepth 1 -name "*Job.php" -o -name "*Process*.php" 2>/dev/null
@@ -173,6 +201,36 @@ find tests/Feature -maxdepth 1 -name "*Test.php" 2>/dev/null
 
 # Tests using old URL (without /api/v1/ prefix)
 grep -rn "'/api/" tests/Feature/ 2>/dev/null | grep -v "/api/v1/"
+
+# Tests missing #[Seed] attribute (should use #[Seed(ClassName::class)])
+grep -rL "#\[Seed" tests/Feature/ 2>/dev/null | grep -v "TestCase.php"
+
+# Missing tests for controllers
+for ctrl in $(find app/Http/Controllers -name "*Controller.php" ! -name "Controller.php"); do
+  name=$(basename "$ctrl" .php)
+  find tests/Feature -name "${name}Test.php" | grep -q . || echo "MISSING TEST: ${name}Test.php"
+done
+```
+
+### Factories & Seeders
+```bash
+# Factories missing #[UseModel] attribute
+grep -rL "#\[UseModel\]" database/factories/ 2>/dev/null | grep -v "Factory.php$"
+
+# Models without a factory
+for model in $(find app/Models -name "*.php" ! -name "Permission.php" ! -name "Role.php" ! -name "Module.php" ! -name "ModelHas*" ! -name "RoleModules*"); do
+  name=$(basename "$model" .php)
+  find database/factories -name "${name}Factory.php" | grep -q . || echo "MISSING FACTORY: ${name}Factory.php"
+done
+```
+
+### Horizon / Octane (only if installed)
+```bash
+# Horizon: Queue::route() must exist in AppServiceProvider
+[ -f config/horizon.php ] && grep -q "Queue::route" app/Providers/AppServiceProvider.php 2>/dev/null || echo "MISSING: Queue::route() in AppServiceProvider"
+
+# Octane: warm/flush arrays must be configured
+[ -f config/octane.php ] && grep -q "'warm'" config/octane.php 2>/dev/null || echo "MISSING: 'warm' array in config/octane.php"
 ```
 
 ### ACL (only if Module.php exists)
@@ -251,19 +309,60 @@ Issues: {list issues}
 ```
 
 ### Job
-**Bad signs:** old property style ($tries, $timeout, $backoff), flat folder
+**Bad signs:** old property style ($tries, $timeout, $backoff, $maxExceptions, $connection, $uniqueFor), flat folder
+
+- **Fixing existing Job** → call `job-builder` with explicit note "refactor existing file":
 ```
-@whyll-agents:job-builder Fix {Name}
+@whyll-agents:job-builder Refactor existing {Name}
 File: app/Jobs/{path}/{Name}.php
-Issues: {list issues}
+Issues: {list issues — e.g., replace $tries with #[Tries], move to domain folder}
 ```
+- **Missing Job** → call `job-builder` to create.
 
 ### Event / Listener
-**Bad signs:** listener old property style, flat folder
+**Bad signs:** listener with old property style ($queue, $tries, $timeout), events/listeners flat at root
+
+- **Fixing existing Event/Listener** → call `event-builder` with "refactor existing":
 ```
-@whyll-agents:event-builder Fix {Name}
-File: app/Events/{path}/{Name}.php
-Issues: {list issues}
+@whyll-agents:event-builder Refactor existing {Name}
+File: app/Events/{path}/{Name}.php (or app/Listeners/{path}/{Name}.php)
+Issues: {list issues — e.g., replace $queue with #[Queue], move to domain folder}
+```
+
+### Test
+**Bad signs:** flat folder, URL without `/api/v1/`, missing `#[Seed]` attribute, missing test for a controller
+```
+@whyll-agents:test-builder Create/Fix test for {Entity}
+File: tests/Feature/{Domain}/{Entity}Test.php
+Issues: {list issues — e.g., missing #[Seed], URL uses /api/ instead of /api/v1/}
+```
+
+### Factory / Seeder
+**Bad signs:** missing factory for model, factory missing `#[UseModel]`, missing seeder
+```
+@whyll-agents:seeder-builder Create factory/seeder for {Entity}
+Issues: {list issues — e.g., missing #[UseModel] attribute, no {Entity}Factory.php}
+```
+
+### Auditing
+**Bad signs:** Model missing `ContractAuditable` interface, missing `Auditable` trait, password/token field without `$auditExclude`, missing `config/audit.php` or Resolvers
+```
+@whyll-agents:audit-builder Configure auditing for {Entity}
+Issues: {list issues — e.g., missing ContractAuditable interface, password not in auditExclude}
+```
+
+### Horizon
+**Bad signs:** Redis installed but `Queue::route()` missing in AppServiceProvider, supervisors not configured
+```
+@whyll-agents:horizon-builder Configure Horizon
+Issues: {list issues — e.g., missing Queue::route() call, supervisors not tuned}
+```
+
+### Octane
+**Bad signs:** `config/octane.php` missing `warm`/`flush` arrays, static state pitfalls in listeners
+```
+@whyll-agents:octane-builder Configure Octane
+Issues: {list issues — e.g., 'warm' array missing in config/octane.php}
 ```
 
 ### Routes
@@ -322,16 +421,20 @@ Total: X components need fixes
 
 | Component | Must Have | Must NOT Have |
 |-----------|-----------|---------------|
-| Infrastructure | Service.php, Repository.php, ErrorResource.php, logging channels | — |
+| Infrastructure | Service.php, Repository.php, ErrorResource.php, logging channels (`services`, `repositories`, `jobs`) | — |
 | Migration | `id` (unsignedBigInteger) first, `uuid` (PK) second, `MODIFY AUTO_INCREMENT` | ADD COLUMN id, uuid before id, `_id` FKs |
 | Controller | DI constructor, domain folder, JsonResource return | try-catch, Log::, queries, response()->json, constructor middleware, `new Service()` |
 | Service | extends Service, Repository, try-catch, Resource returns, domain folder | DB:: facade |
 | Repository | extends Repository, Model::query(), domain folder | DB:: facade |
-| Model | HasFactory, HasUuids, SoftDeletes, `#[Table]`, `#[Fillable]`, uniqueIds(), domain folder | AutoIncrementId, `$fillable` property, `_id` FKs, Spatie imports |
-| FormRequest | authorize(), POST+PUT handling, array syntax, domain folder | pipe syntax |
-| Resource | @mixin, explicit fields, toISOString, whenLoaded, `#[Collects]`, domain folder | parent::toArray, `$collects` property |
-| Job | `#[Tries]`, `#[Timeout]`, `#[Backoff]`, `#[Queue]`, domain folder | `$tries`, `$timeout`, `$backoff` properties |
-| Event/Listener | Domain folder, listener queue attributes if ShouldQueue | `$queue`, `$tries` properties on listener |
-| Routes | Versioned `routes/api/v1.php`, per-route `permission:` middleware | routes in api.php, constructor middleware, `model_permission` alias |
+| Model | HasFactory, HasUuids, SoftDeletes, `#[Table]`, `#[Fillable]`, uniqueIds(), domain folder (ACL models exempt — stay at `app/Models/` root) | AutoIncrementId, `$fillable` property, `_id` FKs, Spatie imports |
+| Auditing (if installed) | `implements ContractAuditable`, `use Auditable`, `$auditExclude` for password/tokens, `config/audit.php`, Resolvers | Password/token fields without `$auditExclude` |
+| FormRequest | authorize(), POST+PUT+PATCH handling, array syntax, domain folder | pipe syntax, only `put` check (must accept `patch` too) |
+| Resource | @mixin, explicit fields, toISOString, whenLoaded, `#[Collects]` on Collections, domain folder | parent::toArray, `$collects` property |
+| Job | `#[Tries]`, `#[Timeout]`, `#[Backoff]`, `#[Queue]`, `#[MaxExceptions]`, `#[Connection]`, `#[UniqueFor]` (when applicable), domain folder | `$tries`, `$timeout`, `$backoff`, `$maxExceptions`, `$connection`, `$uniqueFor` properties |
+| Event/Listener | Domain folder, listener with `#[Queue]`, `#[Tries]`, `#[Timeout]` if ShouldQueue | `$queue`, `$tries`, `$timeout` properties on listener |
+| Routes | Versioned `routes/api/v1.php`, per-route `permission:` middleware, JWT routes wrapped in `Route::middleware('jwt')` group | routes in api.php, constructor middleware, `model_permission` alias |
 | ACL | Standalone (no Spatie), `config/acl.php`, custom HasRoles trait | `spatie/laravel-permission`, `config/permission.php`, Spatie imports |
-| Test | Domain folder `tests/Feature/{Domain}/`, versioned URL `/api/v1/`, `#[Seed]` | Flat test folder, non-versioned URL |
+| Test | Domain folder `tests/Feature/{Domain}/`, versioned URL `/api/v1/`, `#[Seed]` attribute, one test per Controller | Flat test folder, non-versioned URL, missing `#[Seed]` |
+| Factory/Seeder | `#[UseModel]` attribute on Factory, one Factory per Model, Seeder registered in DatabaseSeeder | Factory without `#[UseModel]`, Model without Factory |
+| Horizon (if installed) | `Queue::route()` in AppServiceProvider, supervisors in `config/horizon.php` | Redis queue without Horizon config |
+| Octane (if installed) | `warm`/`flush` arrays in `config/octane.php`, no static state in listeners | Static state pitfalls, missing warm list |
