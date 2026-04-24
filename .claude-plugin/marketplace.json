@@ -13,18 +13,18 @@
     {
       "name": "whyll-agents",
       "source": "./categories/01-laravel",
-      "description": "Laravel specialist agents for WhylLima project - Full-stack, model builder, API layer, endpoint, test, and job specialists using Laravel 12, PHP 8.3, UUID-based models, and Service-Repository pattern",
-      "version": "2.3.0",
+      "description": "Laravel 13 specialist agents - full-stack, model, API layer, ACL (standalone), JWT auth, audit, horizon, octane, MCP server, AI agent, and quality checker using PHP 8.3, UUID-based models, and Service-Repository pattern",
+      "version": "2.5.0",
       "category": "development",
-      "keywords": ["laravel", "php", "api", "service-repository", "uuid", "whyllima"]
+      "keywords": ["laravel", "php", "api", "service-repository", "uuid", "acl", "jwt", "audit", "horizon", "octane", "mcp", "whyllima"]
     },
     {
       "name": "whyll-agents-front",
       "source": "./categories/02-front-end",
-      "description": "Front-end specialist agents - form-validation-builder (vee-validate 4 + Yup), Nuxt 3 project builder with Pinia, Axios, PrimeVue, TypeScript, i18n, and recommended tooling",
-      "version": "1.0.0",
+      "description": "Front-end specialist agents - Nuxt 4 project builder, form-validation (vee-validate 4 + Yup with multi-step wizards), components, stores, composables, API layer, i18n, layouts, plugins and testing with Pinia, Axios, PrimeVue 4, TypeScript",
+      "version": "1.2.0",
       "category": "development",
-      "keywords": ["nuxt", "vue", "pinia", "primevue", "axios", "typescript", "i18n", "whyllima"]
+      "keywords": ["nuxt", "vue", "pinia", "primevue", "axios", "typescript", "i18n", "vee-validate", "yup", "whyllima"]
     },
     {
       "name": "whyll-agents-biz",

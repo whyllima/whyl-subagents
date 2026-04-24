@@ -2,7 +2,7 @@
 
 Agentes especializados para Laravel 12 seguindo o padrao Service-Repository com UUID.
 
-**Stack:** PHP 8.3 | Laravel 12 | JWT/Sanctum | Horizon | Reverb | PHPUnit
+**Stack:** PHP 8.3 | Laravel 13 | JWT/Sanctum | Horizon | Reverb | PHPUnit
 
 **Prefixo:** `@whyll-agents:<agente>`
 
@@ -181,7 +181,7 @@ Configura autenticacao JWT completa com `tymon/jwt-auth`: login, logout, refresh
 
 ### `acl-builder`
 
-Configura sistema ACL modular de 3 niveis: User -> Role -> Module -> Permission. Cria models, migrations, traits, middleware, seeders e configuracao do Spatie Permission com UUID.
+Configura sistema ACL standalone (sem Spatie) de 3 niveis: User -> Role -> Module -> Permission. Cria models, migrations, traits (`HasRoles`), middleware (`permission:`), config (`config/acl.php`) e seeders. Prevenção de privilege escalation inclusa. UUID em todos os models ACL.
 
 **Exemplos:**
 
@@ -213,7 +213,7 @@ Configura auditoria com `owen-it/laravel-auditing` e suporte a UUID. Cria resolv
 
 ### `horizon-builder`
 
-Configura Laravel Horizon com Redis PhpRedis: instalacao, `config/horizon.php`, supervisors, balanceamento, deploy e configuracao de filas Redis.
+Configura Laravel Horizon com Redis PhpRedis: instalacao, `config/horizon.php`, supervisors, balanceamento, `Queue::route()` em AppServiceProvider, deploy e configuracao de filas Redis. Inclui integracao com Octane quando presente.
 
 **Exemplos:**
 
@@ -227,11 +227,59 @@ Configura Laravel Horizon com Redis PhpRedis: instalacao, `config/horizon.php`, 
 
 ---
 
+### `octane-builder`
+
+Configura Laravel Octane com RoadRunner (ou Swoole/FrankenPHP): instalacao, `config/octane.php` com `warm`/`flush`, `rr.yaml`, prevencao de static state, integracao com Horizon e deploy.
+
+**Exemplos:**
+
+```text
+@whyll-agents:octane-builder Setup Octane with RoadRunner for production
+
+@whyll-agents:octane-builder Configure Octane warm list and flush list for singleton safety
+
+@whyll-agents:octane-builder Setup Octane with FrankenPHP and configure Horizon integration
+```
+
+---
+
+### `mcp-server-builder`
+
+Cria servidores MCP para Laravel 13 usando `laravel/mcp`: tools, resources e prompts para expor funcionalidades do app para clientes AI externos.
+
+**Exemplos:**
+
+```text
+@whyll-agents:mcp-server-builder Create an MCP server that exposes Product listing as a resource
+
+@whyll-agents:mcp-server-builder Create MCP tools for creating and updating Orders from external AI clients
+
+@whyll-agents:mcp-server-builder Create MCP prompts for guided customer support workflows
+```
+
+---
+
+### `ai-agent-builder`
+
+Cria AI Agents para Laravel 13 com tools, structured output, conversation memory, streaming e broadcasting usando o Laravel AI SDK.
+
+**Exemplos:**
+
+```text
+@whyll-agents:ai-agent-builder Create an AI agent for customer support with product lookup tools
+
+@whyll-agents:ai-agent-builder Create an agent with streaming responses and conversation memory
+
+@whyll-agents:ai-agent-builder Create an agent that broadcasts progress via Reverb while processing orders
+```
+
+---
+
 ## Fixers (auditar e corrigir)
 
 ### `quality-checker`
 
-Audita o codigo Laravel e gera prompts formatados para os agentes fixers. Verifica Controllers, Services, Repositories, Models, FormRequests e Resources contra os padroes do projeto. Detecta ACL e valida middleware.
+Audita o codigo Laravel e gera prompts formatados para os agentes fixers. Verifica Controllers, Services, Repositories, Models, FormRequests, Resources, Jobs, Events, Tests, Factories, ACL, Auditing, Horizon e Octane contra os padroes do projeto. Detecta ACL standalone e valida middleware `permission:` por rota.
 
 **Exemplos:**
 

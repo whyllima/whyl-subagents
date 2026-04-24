@@ -205,6 +205,22 @@ Cria testes Vitest para apps Nuxt 4: testes de componente com `mountSuspended`, 
 
 ---
 
+### `form-validation-builder`
+
+Cria formularios Vue 3 validados com vee-validate 4 + Yup — desde formularios simples ate wizards multi-step complexos com widgets reutilizaveis e schemas aninhados. Suporta: validacao assincrona (ex: verificar nome disponivel via API), capability gating (pular validacao quando feature flag esta off), acesso a valores root via `this.from[1].value`, `yup.mixed().test()` para estruturas livres (grids, arrays de grupos, variaveis dinamicas), e preservacao de estado entre steps com `:keep-values` + `:key` + `:initial-values` reativo.
+
+**Exemplos:**
+
+```text
+@whyll-agents-front:form-validation-builder Create a multi-step wizard for "Automation" with 6 steps, capability gating and async name validation
+
+@whyll-agents-front:form-validation-builder Create a reusable TextInput widget with vee-validate useField integration
+
+@whyll-agents-front:form-validation-builder Create a single-page form for "Product" with name, price, category and date range fields
+```
+
+---
+
 ## Qualidade
 
 ### `quality-checker`
